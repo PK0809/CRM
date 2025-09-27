@@ -34,6 +34,13 @@ ALLOWED_HOSTS = env.list(
 )
 
 # =====================================
+# Proxy / SSL header (fix Bad Request 400)
+# =====================================
+# Trust the X-Forwarded-Proto header from the proxy
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
+
+# =====================================
 # Applications
 # =====================================
 INSTALLED_APPS = [
