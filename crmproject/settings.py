@@ -110,7 +110,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # Static & Media
 # =====================================
 STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "crm" / "static"]  # For local
+STATIC_ROOT = BASE_DIR / "staticfiles"  # For collectstatic in production
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 

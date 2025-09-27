@@ -863,39 +863,36 @@ def quotation_pdf(request, pk):
 
 
 from django.views import View
+from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from weasyprint import HTML
-from django.shortcuts import get_object_or_404
 from datetime import timedelta
-from .models import Estimation
-from crm.models import DefaultTerms
+from .models import Estimation, EstimationItem, DefaultTerms
 from .utils import inr_currency_words
-import os
 from django.conf import settings
+from pathlib import Path
 
-class QuotationPDFView(View):
+class QuotationPDFView(View):  # ✅ Inherit from View
     def get(self, request, pk):
-        # Fetch estimation
         estimation = get_object_or_404(Estimation, pk=pk)
 
-        # Convert items to simple dicts (fixes HSN issue)
-        items = []
-        for item in estimation.items.all():
-            items.append({
+        items = [
+            {
                 'item_details': item.item_details,
-                'hsn_sac': item.hsn_sac or "",  # if None, becomes empty string
+                'hsn_sac': item.hsn_sac or "",
                 'quantity': item.quantity,
                 'rate': item.rate,
                 'tax': item.tax,
                 'amount': item.amount,
-            })
+            }
+            for item in estimation.items.all()
+        ]
 
-        # GST logic
         company_gst_state = (estimation.gst_no or "").strip()[:2]
-        our_gst_state = "29"  # your company GST state code
+        our_gst_state = "29"
         same_state = company_gst_state == our_gst_state
-        gst_rate = 18  # default GST rate
+        gst_rate = 18
 
         if same_state:
             cgst = sgst = estimation.gst_amount / 2
@@ -908,24 +905,19 @@ class QuotationPDFView(View):
             igst_rate = gst_rate
             cgst_rate = sgst_rate = 0
 
-        # Terms & Conditions
         default_terms = DefaultTerms.objects.order_by('-id').first() or DefaultTerms(content="")
-
-        # Expiry Date
         expiry_date = estimation.quote_date + timedelta(days=estimation.validity_days)
-
-        # Total in words
         amount_in_words = inr_currency_words(estimation.total)
 
-        # Logo path
-        logo_path = os.path.join(settings.STATIC_ROOT, 'images', 'logo.png')
+        # Logo
+        logo_path = Path(settings.STATIC_ROOT) / "images/logo.png"
+        logo_uri = logo_path.as_uri()
 
-        # Render HTML template
         html_string = render_to_string('quotation_pdf_template.html', {
             'estimation': estimation,
             'items': items,
             'amount_in_words': amount_in_words,
-            'logo_path': logo_path,
+            'logo_uri': logo_uri,
             'expiry_date': expiry_date,
             'same_state': same_state,
             'cgst': cgst,
@@ -937,16 +929,17 @@ class QuotationPDFView(View):
             'terms': default_terms,
         })
 
-        # Generate PDF
-        html = HTML(string=html_string, base_url=request.build_absolute_uri('/'))
-        pdf = html.write_pdf()
+        pdf = HTML(string=html_string, base_url=settings.STATIC_ROOT.as_uri()).write_pdf()
 
-        # Return PDF response
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename=Quotation_{estimation.quote_no}.pdf'
         return response
 
 
+import os
+from django.conf import settings
+
+logo_path = str(os.path.join(settings.STATIC_ROOT, "images/logo.png"))
 
 
 # 📋 Estimation List View
@@ -1054,10 +1047,6 @@ def edit_estimation(request, pk):
         'terms': default_terms,
         'all_leads': all_leads,
     })
-
-
-
-
 
 
 from django.core.paginator import Paginator
@@ -1346,31 +1335,31 @@ from weasyprint import HTML
 from datetime import timedelta
 from .models import Invoice, EstimationItem
 from num2words import num2words
+from django.conf import settings
+from pathlib import Path
 
 def invoice_pdf_view(request, invoice_id):
     invoice = get_object_or_404(Invoice, pk=invoice_id)
     estimation = invoice.estimation
     items = EstimationItem.objects.filter(estimation=estimation)
 
-    # Calculate due date
+    # Due date
     due_date = invoice.created_at + timedelta(days=invoice.credit_days or 0)
 
     # Amount in words
     total = estimation.total
     rupees = int(total)
     paise = int(round((total - rupees) * 100))
-
     amount_in_words = f"Rupees {num2words(rupees, lang='en_IN').title()}"
     if paise > 0:
         amount_in_words += f" and {num2words(paise, lang='en_IN').title()} Paise"
     amount_in_words += " Only"
 
-    # Tax Type Detection (change this logic as per your actual data)
+    # GST
     company_gst_state_code = estimation.gst_no[:2] if estimation.gst_no else ''
     our_gst_state_code = "29"  # Karnataka
     same_state = (company_gst_state_code == our_gst_state_code)
 
-    # Calculate SGST/CGST if same state; IGST if different
     if same_state:
         sgst = cgst = estimation.gst_amount / 2
         igst = 0
@@ -1378,6 +1367,11 @@ def invoice_pdf_view(request, invoice_id):
         sgst = cgst = 0
         igst = estimation.gst_amount
 
+    # Logo
+    logo_path = Path(settings.STATIC_ROOT) / "images/logo.png"
+    logo_uri = logo_path.as_uri()
+
+    # Render HTML
     html_string = render_to_string("invoice_pdf_weasy.html", {
         'invoice': invoice,
         'estimation': estimation,
@@ -1388,13 +1382,15 @@ def invoice_pdf_view(request, invoice_id):
         'sgst': sgst,
         'cgst': cgst,
         'igst': igst,
+        'logo_uri': logo_uri,
     })
 
-    pdf_file = HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
+    pdf_file = HTML(string=html_string, base_url=settings.STATIC_ROOT.as_uri()).write_pdf()
 
     response = HttpResponse(pdf_file, content_type='application/pdf')
     response['Content-Disposition'] = f'filename="{invoice.invoice_no}.pdf"'
     return response
+
 
 
 
