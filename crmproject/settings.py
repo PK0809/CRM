@@ -38,7 +38,7 @@ ALLOWED_HOSTS = env.list(
 # =====================================
 # Trust the X-Forwarded-Proto header from the proxy
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_HOST = True 
 
 # =====================================
 # Applications
@@ -123,7 +123,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Static & Media
 # =====================================
 STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "static"  # For collectstatic on Render
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Whitenoise for production static files
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"

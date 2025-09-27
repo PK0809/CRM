@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: isecure-crm
+    env: python
+    buildCommand: "python manage.py collectstatic --noinput"
+    startCommand: "gunicorn your_project_name.wsgi:application"
+    staticPublishPath: staticfiles
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "your_project_name.settings"
