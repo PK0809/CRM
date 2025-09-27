@@ -19,15 +19,18 @@ environ.Env.read_env(BASE_DIR / ".env")
 SECRET_KEY = env("SECRET_KEY", default="change-me-in-production")
 DEBUG = env.bool("DEBUG", default=False)
 
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    '192.168.31.194',
-    'crm.isecuresolutions.in',
-    '.cfargotunnel.com',  # allows any subdomain from Cloudflare Tunnel
-    '.onrender.com',
-]
-    
+# ✅ ALLOWED_HOSTS now configurable via .env
+ALLOWED_HOSTS = env.list(
+    "ALLOWED_HOSTS",
+    default=[
+        "localhost",
+        "127.0.0.1",
+        "192.168.31.194",
+        "crm.isecuresolutions.in",
+        ".cfargotunnel.com",
+        ".onrender.com",  # Render apps
+    ],
+)
 
 # =====================================
 # Applications
@@ -112,20 +115,20 @@ AUTH_PASSWORD_VALIDATORS = [
 # Static & Media
 # =====================================
 
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / "static"  # Where collectstatic places files for production
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "static"  # for collectstatic on Render
 
-# Use Whitenoise to serve static files in production
+# Whitenoise for production
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# Include extra static folders during development only
+# Only include extra static folders in development
 if DEBUG:
     STATICFILES_DIRS = [
-        BASE_DIR / "crm" / "static",     # App-level static files
-        BASE_DIR / "static_dev",         # Optional custom dev folder
+        BASE_DIR / "crm" / "static",
+        BASE_DIR / "static_dev",
     ]
 
-MEDIA_URL = '/media/'
+MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # =====================================
