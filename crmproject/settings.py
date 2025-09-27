@@ -25,6 +25,7 @@ ALLOWED_HOSTS = [
     '192.168.31.194',
     'crm.isecuresolutions.in',
     '.cfargotunnel.com',  # allows any subdomain from Cloudflare Tunnel
+    '.onrender.com',
 ]
     
 
