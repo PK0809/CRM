@@ -1,0 +1,6 @@
+﻿<h1>Lead Page</h1>
+{% extends "base.html" %}
+{% block content %}
+<h1>Lead Module</h1>
+<p>This is the lead module content.</p>
+{% endblock %}

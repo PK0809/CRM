@@ -1,0 +1,63 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+
+<!-- 🔹 Invoice Approvals Section -->
+<div class="bg-gray-100 p-6">
+    <h1 class="text-2xl font-bold mb-4">Invoice Approvals</h1>
+    <table class="min-w-full border text-sm mb-6">
+        <thead class="bg-gray-200">
+            <tr>
+                <th class="px-4 py-2 border">Quote No</th>
+                <th class="px-4 py-2 border">Quote Date</th>
+                <th class="px-4 py-2 border">PO Number</th>
+                <th class="px-4 py-2 border">PO Date</th>
+                <th class="px-4 py-2 border">Attachment</th>
+                <th class="px-4 py-2 border">Remarks</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for est in estimations %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-2 border">{{ est.quote_no }}</td>
+                <td class="px-4 py-2 border">{{ est.quote_date }}</td>
+                <td class="px-4 py-2 border">{{ est.po_number }}</td>
+                <td class="px-4 py-2 border">{{ est.po_date }}</td>
+                <td class="px-4 py-2 border">
+                    {% if est.po_attachment %}
+                    <a href="{{ est.po_attachment.url }}" target="_blank" class="text-blue-600 underline">📎</a>
+                    {% else %}
+                    <span class="text-gray-400">No File</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-2 border">{{ est.remarks }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- 🔹 Generated Invoices Section -->
+    <h1 class="text-2xl font-bold mb-4 mt-8">Generated Invoices</h1>
+    <table class="min-w-full border text-sm">
+        <thead class="bg-gray-200">
+            <tr>
+                <th class="px-4 py-2 border">Invoice No</th>
+                <th class="px-4 py-2 border">Date</th>
+                <th class="px-4 py-2 border">Client</th>
+                <th class="px-4 py-2 border">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inv in invoices %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-2 border">{{ inv.invoice_no }}</td>
+                <td class="px-4 py-2 border">{{ inv.date }}</td>
+                <td class="px-4 py-2 border">{{ inv.estimation.company_name }}</td>
+                <td class="px-4 py-2 border">₹{{ inv.estimation.total }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-gray-500 py-4">No invoices found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

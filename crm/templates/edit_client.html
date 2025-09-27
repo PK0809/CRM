@@ -1,0 +1,48 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Edit Client</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white p-6 rounded shadow-lg w-full max-w-xl">
+        <h2 class="text-3xl font-bold mb-6 text-center text-gray-800">Edit Client</h2>
+
+        <form method="POST">
+            {% csrf_token %}
+
+            <div class="mb-4">
+                <label class="block text-gray-700 font-semibold mb-2">Company Name</label>
+                <input type="text" name="company_name" value="{{ client.company_name }}" required class="w-full border p-2 rounded">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 font-semibold mb-2">Type of Company</label>
+                <select name="type_of_company" required class="w-full border p-2 rounded">
+                    <option value="">-- Select Type --</option>
+                    <option value="Private Limited">Private Limited</option>
+                    <option value="Public Limited">Public Limited</option>
+                    <option value="Partnership">Partnership</option>
+                    <option value="Proprietorship">Proprietorship</option>
+                    <option value="LLP">LLP</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 font-semibold mb-2">GST No</label>
+                <input type="text" name="gst_no" value="{{ client.gst_no}}" required class="w-full border p-2 rounded">
+            </div>
+
+            <div class="flex justify-between">
+                <a href="{% url 'client' %}" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Back</a>
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save</button>
+            </div>
+        </form>
+    </div>
+
+</body>
+</html>

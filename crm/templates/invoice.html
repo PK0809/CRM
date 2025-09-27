@@ -1,0 +1,26 @@
+﻿{% extends 'base.html' %}
+{% block content %}
+<h2 class="text-xl font-bold mb-4">Generated Invoices</h2>
+<table class="min-w-full border">
+    <thead>
+        <tr>
+            <th>Invoice No</th>
+            <th>Quote No</th>
+            <th>Client</th>
+            <th>Created Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for invoice in invoices %}
+        <tr>
+            <td>{{ invoice.invoice_no }}</td>
+            <td>{{ invoice.estimation.quote_no }}</td>
+            <td>{{ invoice.estimation.company_name.company_name }}</td>
+            <td>{{ invoice.created_at }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">No invoices generated yet.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

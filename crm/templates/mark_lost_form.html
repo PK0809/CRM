@@ -1,0 +1,16 @@
+﻿{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-xl mx-auto mt-10 p-6 bg-white shadow rounded">
+    <h2 class="text-xl font-bold mb-4">Mark Quotation as Lost</h2>
+    <form method="POST">
+        {% csrf_token %}
+        <label for="lost_reason" class="block mb-2 font-semibold">Reason for Loss:</label>
+        <textarea id="lost_reason" name="lost_reason" rows="4"
+                  class="w-full border border-gray-300 p-2 rounded" required></textarea>
+        <button type="submit" class="mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+            Submit
+        </button>
+    </form>
+</div>
+{% endblock %}

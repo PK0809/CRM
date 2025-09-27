@@ -1,0 +1,82 @@
+﻿<style >
+.fade-enter {
+    opacity: 0;
+    transform: scale(0.95);
+}
+
+.fade-enter-active {
+    opacity: 1;
+    transform: scale(1);
+    transition: all 0.3s ease;
+}
+
+</style >
+
+.site-header {
+    height: 70px;
+    background-color: #f2f2f2;
+    display: flex;
+    justify-content: space-between; /* space between left and right */
+    align-items: center;
+    padding: 0 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+}
+
+    .header-left img {
+        height: 30px;
+        margin-right: 15px;
+    }
+
+    .header-left h1 {
+        font-size: 22px;
+        margin: 0;
+    }
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: bold;
+    color: #444;
+}
+
+.profile-pic {
+    height: 35px;
+    width: 35px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+a {
+    text-decoration: none;
+    color: #333;
+}
+
+aside a:hover {
+    font-weight: bold;
+}
+.form-wrapper {
+    max-width: 520px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+
+h2 {
+    margin: 5px 0 5px; /* reduce top and bottom space */
+    font-size: 22px;
+}
+p {
+    margin: 5px 0 15px; /* reduced gap from "Sign In" to below text */
+    color: #555;
+    font-size: 13px;
+}

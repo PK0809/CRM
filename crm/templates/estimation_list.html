@@ -1,0 +1,211 @@
+﻿{% extends 'base.html' %}
+
+{% block content %}
+<div class="bg-gray-100 p-6 min-h-screen">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">Estimation</h1>
+        <a href="{% url 'create_quotation' %}" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">
+            ➕ New Quote
+        </a>
+    </div>
+
+    <!-- Search + Today Follow Up -->
+    <div class="flex justify-between items-center mb-2">
+        <!-- Search Input -->
+        <input type="text" id="estimationSearch" placeholder="🔍 Search ..."
+               class="border border-gray-300 rounded px-5 py-2 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+               onkeyup="filterEstimationsTable()" />
+
+        <!-- Today Follow Up Button -->
+        <div>
+            <a href="{% url 'estimation_list' %}?follow_up=today" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm ml-2">
+                📅 Today Follow Up
+            </a>
+            {% if follow_up == "today" and page_obj.paginator.count == 0 %}
+            <span class="ml-4 text-red-600 text-sm">No follow-ups for today.</span>
+            {% endif %}
+            {% if follow_up == "today" %}
+            <a href="{% url 'estimation_list' %}" class="ml-2 text-blue-700 underline text-sm">Clear Filter</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Estimation Table -->
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white shadow border border-gray-300 rounded mt-4 text-sm">
+            <thead class="bg-blue-100 text-blue-900 uppercase">
+                <tr>
+                    <th class="px-4 py-2 border text-center"><a href="?sort=quote_no" class="hover:underline">Quote No</a></th>
+                    <th class="px-4 py-2 border text-center"><a href="?sort=quote_date" class="hover:underline">Quote Date</a></th>
+                    <th class="px-4 py-2 border text-center"><a href="?sort=company" class="hover:underline">Company</a></th>
+                    <th class="px-4 py-2 border text-center">Lead No</th>
+                    <th class="px-4 py-2 border text-center">Total (₹)</th>
+                    <th class="px-4 py-2 border text-center">Status</th>
+                    <th class="px-4 py-2 border text-center">Follow Up Date</th>
+                    <th class="px-4 py-2 border text-center">Remarks</th>
+                    <th class="px-4 py-2 border text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="estimationTableBody" class="text-gray-800">
+                {% for est in page_obj %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-2 border text-center font-mono font-semibold text-blue-600">
+                        {% if est.id %}<a href="{% url 'quotation_pdf' est.id %}" target="_blank">{{ est.quote_no }}</a>{% else %}<span class="text-gray-400 italic">N/A</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-2 border text-center">{{ est.quote_date }}</td>
+                    <td class="px-4 py-2 border text-center">{{ est.company_name }}</td>
+                    <td class="px-4 py-2 border text-center">#{{ est.lead_no.id|stringformat:"04d" }}</td>
+                    <td class="px-4 py-2 border text-center">₹{{ est.total }}</td>
+                    <td class="px-4 py-2 border text-center">
+                        {% if est.status == "Approved" %}<span class="text-green-600 font-semibold">{{ est.status }}</span>
+                        {% elif est.status == "Rejected" %}<span class="text-red-600 font-semibold">{{ est.status }}</span>
+                        {% elif est.status == "Lost" %}<span class="text-gray-600 italic">{{ est.status }}</span>
+                        {% else %}<span class="text-yellow-600 font-semibold">{{ est.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-2 border text-center">{{ est.follow_up_date|default:"—" }}</td>
+                    <td class="px-4 py-2 border text-center">{{ est.follow_up_remarks|default:"—" }}</td>
+                    <td class="px-4 py-2 border text-center relative">
+                        <div class="inline-block text-left">
+                            <div class="relative inline-block text-left" id="action-{{ est.id }}">
+                                <button onclick="event.stopPropagation(); toggleDropdown({{ est.id }})"
+                                        class="text-lg hover:text-blue-600" title="Actions">
+                                    👁️
+                                </button>
+                                <div id="dropdown-{{ est.id }}" class="dropdown hidden absolute right-0 mt-2 w-40 bg-white border rounded shadow z-10">
+                                    {% if est.status == "Approved" or est.status == "Invoiced" %}
+                                    <div class="block px-4 py-2 text-gray-500 cursor-not-allowed">
+                                        {% if est.status == "Approved" %}✔️ Approved{% else %}📦 Invoiced{% endif %}
+                                    </div>
+                                    <div class="block px-4 py-2 text-gray-400 text-sm cursor-not-allowed">🔒 Read-only</div>
+                                    {% elif est.status == "Lost" %}
+                                    <div class="block px-4 py-2 text-gray-500 cursor-not-allowed">❌ Lost</div>
+                                    <div class="block px-4 py-2 text-gray-400 text-sm cursor-not-allowed">{{ est.lost_reason }}</div>
+                                    {% else %}
+                                    <a href="{% url 'estimation_edit' est.id %}" class="block px-4 py-2 hover:bg-gray-100 text-sm">✏️ Edit</a>
+                                    <a href="{% url 'approve_estimation' est.id %}" class="block px-4 py-2 text-white text-sm bg-green-600 rounded hover:bg-green-700 shadow">✅ Approve</a>
+                                    <button onclick="openReviewModal({{ est.id }})" class="block w-full text-left px-4 py-2 hover:bg-yellow-100 text-sm">🕵️ Under Review</button>
+                                    <button onclick="openLostReasonModal({{ est.id }})" class="block w-full text-left px-4 py-2 hover:bg-red-100 text-sm">❌ Lost</button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center text-gray-500 py-4">No estimations found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div class="flex justify-center mt-4">
+            {% if page_obj.has_previous %}
+            <a href="?page=1{% if follow_up_date %}&follow_up_date={{ follow_up_date }}{% endif %}" class="px-3 py-1 border rounded-l">« First</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if follow_up_date %}&follow_up_date={{ follow_up_date }}{% endif %}" class="px-3 py-1 border">‹ Prev</a>
+            {% endif %}
+
+            <span class="px-4 py-1 border bg-gray-200">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if follow_up_date %}&follow_up_date={{ follow_up_date }}{% endif %}" class="px-3 py-1 border">Next ›</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if follow_up_date %}&follow_up_date={{ follow_up_date }}{% endif %}" class="px-3 py-1 border rounded-r">Last »</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Review Modal -->
+<div id="reviewModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white p-6 rounded shadow-lg w-96">
+        <h2 class="text-lg font-bold mb-4">Mark as Under Review</h2>
+        <form id="reviewForm" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="estimation_id" id="reviewEstimationId">
+            <label for="followUpDate" class="block text-sm mb-1">Follow Up Date</label>
+            <input type="date" name="follow_up_date" id="followUpDate"
+                   class="w-full p-2 border border-gray-300 rounded mb-4" required>
+            <label for="followUpRemarks" class="block text-sm mb-1">Remarks</label>
+            <textarea name="follow_up_remarks" id="followUpRemarks" rows="3"
+                      class="w-full p-2 border border-gray-300 rounded mb-4"
+                      placeholder="Add remarks..." required></textarea>
+            <div class="flex justify-end space-x-2">
+                <button type="button" onclick="closeReviewModal()" class="bg-gray-300 text-gray-800 px-4 py-2 rounded">Cancel</button>
+                <button type="submit" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">Submit</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Lost Reason Modal -->
+<div id="lostReasonModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white p-6 rounded shadow-lg w-96">
+        <h2 class="text-lg font-bold mb-4">Enter Reason for Loss</h2>
+        <form id="lostReasonForm" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="estimation_id" id="lostEstimationId">
+            <textarea name="reason" id="lostReasonText" rows="4"
+                      class="w-full p-2 border border-gray-300 rounded mb-4" placeholder="Enter reason here..." required></textarea>
+            <div class="flex justify-end space-x-2">
+                <button type="button" onclick="closeLostReasonModal()" class="bg-gray-300 text-gray-800 px-4 py-2 rounded">Cancel</button>
+                <button type="submit" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Submit</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleDropdown(id) {
+        document.querySelectorAll('.dropdown').forEach(el => el.classList.add('hidden'));
+        const dropdown = document.getElementById('dropdown-' + id);
+        if (dropdown) dropdown.classList.toggle('hidden');
+    }
+
+    function filterEstimationsTable() {
+        const input = document.getElementById("estimationSearch");
+        const filter = input.value.toLowerCase();
+        const rows = document.querySelectorAll("#estimationTableBody tr");
+
+        rows.forEach(row => {
+            const cells = row.querySelectorAll("td");
+            let match = false;
+            cells.forEach(cell => {
+                if (cell.textContent.toLowerCase().includes(filter)) {
+                    match = true;
+                }
+            });
+            row.style.display = match ? "" : "none";
+        });
+    }
+
+    function openReviewModal(estimationId) {
+        document.getElementById("reviewEstimationId").value = estimationId;
+        document.getElementById("reviewModal").classList.remove("hidden");
+    }
+
+    function closeReviewModal() {
+        document.getElementById("reviewModal").classList.add("hidden");
+    }
+
+    document.getElementById("reviewForm").addEventListener("submit", function (e) {
+        const id = document.getElementById("reviewEstimationId").value;
+        e.target.action = `/estimation/${id}/review/`;
+    });
+
+    function openLostReasonModal(estimationId) {
+        document.getElementById("lostEstimationId").value = estimationId;
+        document.getElementById("lostReasonModal").classList.remove("hidden");
+    }
+
+    function closeLostReasonModal() {
+        document.getElementById("lostReasonModal").classList.add("hidden");
+    }
+
+    document.getElementById("lostReasonForm").addEventListener("submit", function (e) {
+        const id = document.getElementById("lostEstimationId").value;
+        e.target.action = `/estimation/${id}/lost/`;
+    });
+</script>
+{% endblock %}

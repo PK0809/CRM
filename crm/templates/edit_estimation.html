@@ -1,0 +1,234 @@
+﻿{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto p-8 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl shadow-lg mt-6 mb-10">
+    <h2 class="text-3xl font-bold mb-8 text-center text-gray-800">Edit Quotation</h2>
+
+    {% if error %}
+    <div class="flex items-center gap-2 bg-red-100 text-red-700 p-3 rounded-lg mb-4 animate-pulse">
+        <svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-9V5h2v4h-2zm0 4h2v-2h-2v2z" /></svg>
+        {{ error }}
+    </div>
+    {% endif %}
+
+    {% if success %}
+    <div class="flex items-center gap-2 bg-green-200 text-green-800 p-3 rounded-lg mb-3 animate-pulse">
+        <svg class="w-5 h-5 text-green-700" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 00-1.414 0L9 11.586 6.707 9.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l7-7a1 1 0 000-1.414z" /></svg>
+        {{ success }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{% url 'estimation_edit' estimation.pk %}">
+        {% csrf_token %}
+
+        <!-- Quote Details -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <div>
+                <label class="block font-semibold mb-2 text-gray-700">Company Name</label>
+                <input type="text" name="company_name" value="{{ estimation.company_name.company_name }}"
+                       readonly class="w-full border px-3 py-2 rounded-lg bg-gray-100 focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label class="block font-semibold mb-2 text-gray-700">Quote Date</label>
+                <input type="date"
+                       name="quote_date"
+                       value="{{ estimation.quote_date|date:'Y-m-d' }}"
+                       class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div class="lg:col-span-1">
+                <label class="block font-semibold mb-2 text-gray-700">Lead No</label>
+                <select name="lead_no" class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- Select Lead --</option>
+                    {% for lead in all_leads %}
+                    <option value="{{ lead.id }}" {% if estimation.lead_no and estimation.lead_no.id == lead.id %}selected{% endif %}>
+                        #{{ lead.id|stringformat:"04d" }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-semibold mb-2 text-gray-700">Quote Validity (Days)</label>
+                <input type="number" name="validity_days" value="{{ estimation.validity_days }}" required class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div class="col-span-1 sm:col-span-2 lg:col-span-1">
+                <label class="block font-semibold mb-2 text-gray-700">GST No</label>
+                <input type="text" name="gst_no" value="{{ estimation.gst_no }}" readonly class="w-full border px-3 py-2 rounded-lg bg-gray-100 focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+
+        <!-- Address Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+            <div>
+                <label class="block font-semibold mb-2 text-gray-700">Billing Address</label>
+                <textarea name="billing_address" rows="3" class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500">{{ estimation.billing_address }}</textarea>
+            </div>
+            <div>
+                <label class="block font-semibold mb-2 text-gray-700">Shipping Address</label>
+                <textarea name="shipping_address" rows="3" class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500">{{ estimation.shipping_address }}</textarea>
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <div class="mt-6 bg-white p-4 rounded-xl shadow">
+            <h2 class="text-xl font-bold mb-4 text-gray-700">Items</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm text-left border border-gray-200 rounded-lg">
+                    <thead class="bg-gray-100 sticky top-0">
+                        <tr>
+                            <th class="px-3 py-2 border">Item Details</th>
+                            <th class="px-3 py-2 border w-28">HSN/SAC</th>
+                            <th class="px-3 py-2 border w-20">Qty</th>
+                            <th class="px-3 py-2 border w-24">Rate</th>
+                            <th class="px-3 py-2 border w-24">Tax (%)</th>
+                            <th class="px-3 py-2 border w-28">Amount</th>
+                            <th class="px-3 py-2 border w-12 text-center">✖</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsBody">
+                        {% for item in items %}
+                        <tr class="hover:bg-gray-50 transition-colors duration-200">
+                            <td class="border px-2 py-1">
+                                <input type="text" name="item_details[]" value="{{ item.item_details }}" class="w-full border rounded px-2 py-1 focus:ring-1 focus:ring-blue-400">
+                            </td>
+                            <td class="border px-2 py-1">
+                                <input type="text" name="hsn_sac[]" value="{{ item.hsn_sac }}" class="w-full border rounded px-2 py-1 focus:ring-1 focus:ring-blue-400">
+                            </td>
+                            <td class="border px-2 py-1">
+                                <input type="number" name="quantity[]" value="{{ item.quantity }}" min="0" class="w-full border rounded px-2 py-1" oninput="calculateTotal()">
+                            </td>
+                            <td class="border px-2 py-1">
+                                <input type="number" name="rate[]" value="{{ item.rate }}" class="w-full border rounded px-2 py-1" oninput="calculateTotal()">
+                            </td>
+                            <td class="border px-2 py-1">
+                                <select name="tax[]" class="w-full border rounded px-2 py-1" onchange="calculateTotal()">
+                                    <option value="18" {% if item.tax == 18 %}selected{% endif %}>18%</option>
+                                    <option value="28" {% if item.tax == 28 %}selected{% endif %}>28%</option>
+                                    <option value="12" {% if item.tax == 12 %}selected{% endif %}>12%</option>
+                                    <option value="5" {% if item.tax == 5 %}selected{% endif %}>5%</option>
+                                    <option value="0" {% if item.tax == 0 %}selected{% endif %}>0%</option>
+                                </select>
+                            </td>
+                            <td class="border px-2 py-1">
+                                <input type="text" name="amount[]" value="{{ item.amount }}" class="w-full border rounded px-2 py-1 bg-gray-100" readonly>
+                            </td>
+                            <td class="border px-2 py-1 text-center">
+                                <button type="button" onclick="removeRow(this)" class="text-red-600 font-bold hover:text-red-800">✖</button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <!-- If no items exist, show a blank row -->
+                        <tr class="hover:bg-gray-50 transition-colors duration-200">
+                            <td class="border px-2 py-1">
+                                <input type="text" name="item_details[]" class="w-full border rounded px-2 py-1 focus:ring-1 focus:ring-blue-400">
+                            </td>
+                            <td class="border px-2 py-1">
+                                <input type="text" name="hsn_sac[]" class="w-full border rounded px-2 py-1 focus:ring-1 focus:ring-blue-400">
+                            </td>
+                            <td class="border px-2 py-1">
+                                <input type="number" name="quantity[]" min="0" class="w-full border rounded px-2 py-1" oninput="calculateTotal()">
+                            </td>
+                            <td class="border px-2 py-1">
+                                <input type="number" name="rate[]" class="w-full border rounded px-2 py-1" oninput="calculateTotal()">
+                            </td>
+                            <td class="border px-2 py-1">
+                                <select name="tax[]" class="w-full border rounded px-2 py-1" onchange="calculateTotal()">
+                                    <option value="18">18%</option>
+                                    <option value="28">28%</option>
+                                    <option value="12">12%</option>
+                                    <option value="5">5%</option>
+                                    <option value="0">0%</option>
+                                </select>
+                            </td>
+                            <td class="border px-2 py-1">
+                                <input type="text" name="amount[]" class="w-full border rounded px-2 py-1 bg-gray-100" readonly>
+                            </td>
+                            <td class="border px-2 py-1 text-center">
+                                <button type="button" onclick="removeRow(this)" class="text-red-600 font-bold hover:text-red-800">✖</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <button type="button" id="addItemBtn" class="mt-3 text-sm text-blue-700 hover:underline">➕ Add Item</button>
+        </div>
+
+        <!-- Terms & Conditions -->
+        <div class="mt-6">
+            <label for="terms_conditions" class="block font-semibold mb-2 text-gray-700">Terms & Conditions</label>
+            <textarea name="terms_conditions" rows="6" class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500">
+        {{ form.terms_conditions.value|default:terms }}
+    </textarea>
+        </div>
+
+        <!-- Hidden Fields for Totals -->
+        <input type="hidden" id="sub_total" name="sub_total" value="{{ estimation.sub_total }}">
+        <input type="hidden" id="discount" name="discount" value="{{ estimation.discount }}">
+        <input type="hidden" id="gst_amount" name="gst_amount" value="{{ estimation.gst_amount }}">
+        <input type="hidden" id="total" name="total" value="{{ estimation.total }}">
+
+        <!-- Submit -->
+        <button type="submit"
+                class="w-full bg-green-600 text-white py-3 rounded-xl text-lg font-bold hover:bg-green-700 shadow-lg mt-6 transition-colors duration-300">
+            Submit Quotation
+        </button>
+
+
+        <script>
+            function calculateTotal() {
+                let subTotal = 0, gstTotal = 0;
+                const qtys = document.getElementsByName('quantity[]');
+                const rates = document.getElementsByName('rate[]');
+                const taxes = document.getElementsByName('tax[]');
+                const amounts = document.getElementsByName('amount[]');
+
+                for (let i = 0; i < qtys.length; i++) {
+                    const qty = parseFloat(qtys[i].value) || 0;
+                    const rate = parseFloat(rates[i].value) || 0;
+                    const tax = parseFloat(taxes[i].value) || 0;
+                    const amount = qty * rate;
+                    const taxAmount = (amount * tax) / 100;
+                    amounts[i].value = (amount + taxAmount).toFixed(2);
+                    subTotal += amount;
+                    gstTotal += taxAmount;
+                }
+
+                const discount = parseFloat(document.getElementById('discount').value) || 0;
+                const total = subTotal + gstTotal - discount;
+
+                document.getElementById('sub_total').value = subTotal.toFixed(2);
+                document.getElementById('gst_total').value = gstTotal.toFixed(2);
+                document.getElementById('total').value = total.toFixed(2);
+            }
+
+            function addRow() {
+                const tbody = document.getElementById('itemsBody');
+                const firstRow = tbody.querySelector('tr');
+                const newRow = firstRow.cloneNode(true);
+
+                // Clear values in cloned row
+                newRow.querySelectorAll('input').forEach(input => input.value = '');
+                newRow.querySelectorAll('select').forEach(sel => sel.selectedIndex = 0);
+
+                tbody.appendChild(newRow);
+            }
+
+            function removeRow(btn) {
+                const tbody = document.getElementById('itemsBody');
+                if (tbody.querySelectorAll('tr').length > 1) {
+                    btn.closest('tr').remove();
+                    calculateTotal();
+                }
+            }
+
+            // Attach click event after DOM is ready
+            document.addEventListener('DOMContentLoaded', function () {
+                document.getElementById('addItemBtn').addEventListener('click', addRow);
+            });
+        </script>
+        {% endblock %}

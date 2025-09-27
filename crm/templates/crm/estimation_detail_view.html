@@ -1,0 +1,116 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="min-h-screen bg-gray-100 p-6">
+    <div class="max-w-full mx-auto bg-white rounded shadow-lg">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-0">
+
+            <!-- 📎 Left: PO Attachment -->
+            <div class="p-6 border-r border-gray-300 bg-white overflow-auto">
+                <h3 class="text-2xl font-bold mb-4 text-gray-900">Client PO Attachment</h3>
+                {% if estimation.po_attachment %}
+                <iframe src="{{ estimation.po_attachment.url }}" width="100%" height="500"></iframe>
+                {% else %}
+                <p class="text-gray-500 italic">No attachment available.</p>
+                {% endif %}
+            </div>
+
+            <!-- 📄 Right: Quotation Details -->
+            <div class="p-6 bg-white overflow-auto">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900">Quotation Details</h2>
+
+                <div class="grid grid-cols-2 gap-4 text-sm text-gray-800">
+                    <div><strong>Quote No:</strong> {{ estimation.quote_no }}</div>
+                    <div><strong>Quote Date:</strong> {{ estimation.quote_date }}</div>
+                    <div><strong>Client:</strong> {{ estimation.company_name }}</div>
+                    <div><strong>Lead No:</strong> {{ estimation.lead_no }}</div>
+                    <div><strong>GST No:</strong> {{ estimation.gst_no }}</div>
+                    <div><strong>Validity Days:</strong> {{ estimation.validity_days }}</div>
+                    <div class="col-span-2"><strong>Billing Address:</strong><br>{{ estimation.billing_address }}</div>
+                    <div class="col-span-2"><strong>Shipping Address:</strong><br>{{ estimation.shipping_address }}</div>
+                    <div class="col-span-2"><strong>Terms & Conditions:</strong><br>{{ estimation.terms_conditions }}</div>
+                    <div class="col-span-2"><strong>Bank Details:</strong><br>{{ estimation.bank_details }}</div>
+                </div>
+
+                <!-- 💰 Financial Summary -->
+                <div class="grid grid-cols-2 gap-4 text-sm text-gray-800 mt-4">
+                    <div><strong>Sub Total:</strong> ₹{{ estimation.sub_total }}</div>
+                    <div><strong>Discount:</strong> ₹{{ estimation.discount }}</div>
+                    <div><strong>GST Amount:</strong> ₹{{ estimation.gst_amount }}</div>
+                    <div><strong>Total:</strong> ₹{{ estimation.total }}</div>
+                </div>
+
+                <!-- 📋 Quotation Items Table -->
+                <div class="mt-8">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-800">Items</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm border border-gray-300">
+                            <thead class="bg-gray-200 text-left text-gray-700">
+                                <tr>
+                                    <th class="border px-3 py-2">Item Details</th>
+                                    <th class="border px-3 py-2 text-center">Qty</th>
+                                    <th class="border px-3 py-2 text-right">Rate</th>
+                                    <th class="border px-3 py-2 text-right">Tax (%)</th>
+                                    <th class="border px-3 py-2 text-right">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                <tr class="hover:bg-gray-50">
+                                    <td class="border px-3 py-1">{{ item.item_details }}</td>
+                                    <td class="border px-3 py-1 text-center">{{ item.quantity }}</td>
+                                    <td class="border px-3 py-1 text-right">₹{{ item.rate }}</td>
+                                    <td class="border px-3 py-1 text-right">{{ item.tax }}%</td>
+                                    <td class="border px-3 py-1 text-right">₹{{ item.amount }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-gray-500 px-2 py-4">No items found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 📝 Remarks and Credit -->
+                <div class="mt-6">
+                    <h4 class="font-semibold text-lg mb-2 text-gray-800">Remarks</h4>
+                    <p class="bg-gray-50 p-3 rounded border text-gray-700">{{ estimation.remarks|default:"—" }}</p>
+                </div>
+
+                <div class="mt-4">
+                    <h4 class="font-semibold text-lg mb-2 text-gray-800">Credit Days</h4>
+                    <p class="bg-gray-50 p-3 rounded border text-gray-700">{{ estimation.credit_days|default:"—" }}</p>
+                </div>
+
+                <!-- ✅ Action Buttons -->
+                {% if estimation.status == 'Approved' %}
+                <p class="text-green-700 font-semibold mt-4">Already Approved ✅</p>
+                <button onclick="window.history.back()" class="mt-4 inline-block bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded shadow">
+                    ⬅️ Back
+                </button>
+                {% elif estimation.status == 'Rejected' or estimation.status == 'Lost' %}
+                <p class="text-red-600 font-semibold mt-4">Status: {{ estimation.status }}</p>
+                <button onclick="window.history.back()" class="mt-4 inline-block bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded shadow">
+                    ⬅️ Back
+                </button>
+                <!-- Show buttons only if status is Pending -->
+                <div class="mt-6 flex flex-wrap gap-4">
+                    <!-- Approve button -->
+                    <form method="post" action="{% url 'generate_invoice' estimation.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 shadow">Approve</button>
+                    </form>
+
+                    <!-- Reject (Lost) form -->
+                    <form method="post" action="{% url 'estimation_status' estimation.id 'Lost' %}">
+                        {% csrf_token %}
+                        <input type="text" name="reason" placeholder="Enter reason..." required
+                               class="border px-3 py-2 rounded mr-2 text-sm shadow-sm">
+                        <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 shadow">
+                            Reject
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+                {% endblock %}

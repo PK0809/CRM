@@ -1,0 +1,55 @@
+﻿/* login.css */
+
+body.login-background {
+    background-image: url("../images/background.jpg"); /* Replace with your image path */
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    height: 100vh;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: sans-serif;
+}
+
+.login-box {
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 100px;
+    border-radius: 30px;
+    box-shadow: 0 0 23px rgba(0,0,0,0.3);
+    text-align: center;
+    width: 300px;
+}
+
+.logo-img {
+    width: 350px;
+    margin-bottom: 20px;
+}
+
+input[type="text"],
+input[type="password"] {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 10px;
+    border: 3px solid #ccc;
+}
+
+button {
+    width: 100%;
+    padding: 14px; /* Increased padding for height */
+    background-color: #4285F4;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 20px; /* Increased font size */
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+    button:hover {
+        background-color: #3367d6;
+    }
+

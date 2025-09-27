@@ -1,0 +1,206 @@
+﻿{% load static %}{% spaceless %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            margin: 20px;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            font-size: 11px;
+            margin: 0;
+            padding: 0;
+            color: #000;
+        }
+
+        .header, .footer {
+            width: 100%;
+            border: 1px solid #999;
+            padding: 10px;
+        }
+
+        .header-table td {
+            vertical-align: top;
+            padding: 5px;
+        }
+
+        .quote-title {
+            text-align: right;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .meta-table, .address-table, .items-table, .totals-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 11px;
+        }
+
+            .meta-table td, .address-table td, .items-table th, .items-table td, .totals-table td {
+                border: 1px solid #999;
+                padding: 6px;
+                vertical-align: top;
+            }
+
+            .items-table th {
+                background: #f3f3f3;
+                text-align: left;
+            }
+
+        .bank-details, .terms {
+            font-size: 10px;
+            margin-top: 10px;
+        }
+
+        .signature {
+            margin-top: 30px;
+            text-align: right;
+            font-weight: bold;
+        }
+
+        .section-title {
+            font-weight: bold;
+            text-decoration: underline;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <table style="width: 100%; border: 1px solid #999; border-collapse: collapse; margin-bottom: 10px;">
+        <tr>
+            <td style="width: 25%; padding: 10px; text-align: center; vertical-align: middle; border-right: 1px solid #999;">
+                <img src="https://www.crm.isecuresolutions.in/static/images/logo.png" style="height: 80px; object-fit: contain; display: block; margin: 0 auto;">
+            </td>
+            <td style="width: 50%; padding: 10px; text-align: center; font-size: 13px; line-height: 1.5; border-right: 1px solid #999;">
+                <strong style="font-size: 16px;">iSecure Solutions, a Brand of B16Ventures</strong><br>
+                #60 Swarupa, 5th West Cr, Riches Garden, RM Nagar,<br>
+                Bangalore 560016 | Ph: 916 916 8216<br>
+                support@isecuresolutions.in | www.isecuresolutions.in<br>
+                GSTIN: 29AVXPP2341P1ZJ
+            </td>
+            <td style="width: 25%; text-align: center; vertical-align: middle;">
+                <div style="font-size: 20px; font-weight: bold;">QUOTE</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Estimate Info -->
+    <table class="meta-table">
+        <tr>
+            <td><strong>Estimate Number:</strong> {{ estimation.quote_no }}</td>
+            <td><strong>Estimate Date:</strong> {{ estimation.quote_date|date:"d/m/Y" }}</td>
+            <td><strong>Expiry Date:</strong> {{ expiry_date|date:"d/m/Y" }}</td>
+        </tr>
+    </table>
+
+    <!-- Address Section -->
+    <table class="address-table">
+        <tr>
+            <td width="50%">
+                <strong>Bill To:</strong><br>
+                {{ estimation.company_name }}<br>
+                {{ estimation.billing_address|linebreaksbr }}<br>
+                GSTIN: {{ estimation.gst_no }}
+            </td>
+            <td width="50%">
+                <strong>Ship To:</strong><br>
+                {{ estimation.company_name }}<br>
+                {{ estimation.shipping_address|linebreaksbr }}
+            </td>
+        </tr>
+    </table>
+
+    <!-- Items Table -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width: 3%;">#</th>
+                <th style="width: 45%;">Description</th>
+                <th style="width:10%;">HSN/SAC</th>
+                <th style="width: 7%; text-align: right;">Qty</th>
+                <th style="width: 8%; text-align: right;">Rate</th>
+                <th style="width: 8%; text-align: right;">Tax %</th>
+                <th style="width: 10%; text-align: right;">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ item.item_details }}</td>
+                <td>
+                    {% if item.hsn_sac %}
+                    {{ item.hsn_sac }}
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
+                <td style="text-align:right;">{{ item.quantity }}</td>
+                <td style="text-align:right;">{{ item.rate }}</td>
+                <td style="text-align:right;">{{ item.tax|floatformat:0 }}%</td>
+                <td style="text-align:right;">{{ item.amount }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7">No items found</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+\
+
+    <!-- Totals -->
+    <table class="totals-table">
+        <tr>
+            <td width="70%" rowspan="4" style="text-align: left; vertical-align: middle;">
+                <strong>Total In Words:</strong> {{ amount_in_words }}
+            </td>
+            <td>Sub Total</td>
+            <td style="text-align: right;">{{ estimation.sub_total }}</td>
+        </tr>
+        {% if same_state %}
+        <tr>
+            <td>CGST ({{ cgst_rate|floatformat:"g" }}%)</td>
+            <td style="text-align: right;">{{ cgst }}</td>
+        </tr>
+        <tr>
+            <td>SGST ({{ sgst_rate|floatformat:"g" }}%)</td>
+            <td style="text-align: right;">{{ sgst }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td>IGST ({{ igst_rate|floatformat:"g" }}%)</td>
+            <td style="text-align: right;">{{ igst }}</td>
+        </tr>
+        {% endif %}
+        <tr>
+            <td><strong>Total</strong></td>
+            <td style="text-align: right;"><strong>{{ estimation.total }}</strong></td>
+        </tr>
+    </table>
+
+    <!-- Bank Details -->
+    <div class="section-title">Bank Transfer Details</div>
+    <div class="bank-details">
+        Name: B16 VENTURES<br>
+        A/C No: 233005001741 | IFSC: ICIC0002330<br>
+        Bank: ICICI Bank | Branch: RM Nagar, Bangalore
+    </div>
+
+    <!-- Terms & Conditions -->
+    <h3 style="text-decoration: underline;">Terms & Conditions</h3>
+    <p style="font-size: 10px; line-height: 16px;">{{ terms.content|safe }}</p>
+
+    <!-- Signature -->
+    <div class="signature">For iSecure Solutions</div>
+</body>
+</html>
+{% endspaceless %}
+
+<div style="text-align: center; font-size: 10px; margin-top: 30px; font-style: italic; color: #555;">
+    *Computer Generated Quotation. Signature & Stamp Not Required.
+</div>

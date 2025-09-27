@@ -1,0 +1,58 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CRM Report PDF</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            font-size: 13px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 6px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #eee;
+        }
+    </style>
+</head>
+<body>
+    <h2>CRM Report</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Lead No</th>
+                <th>Client</th>
+                <th>Estimation No</th>
+                <th>Invoice No</th>
+                <th>Status</th>
+                <th>Amount</th>
+                <th>PO No</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inv in invoices %}
+            <tr>
+                <td>{{ inv.estimation.lead_no }}</td>
+                <td>{{ inv.estimation.company_name.company_name }}</td>
+                <td>{{ inv.estimation.quote_no }}</td>
+                <td>{{ inv.invoice_no }}</td>
+                <td>{{ inv.status }}</td>
+                <td>{{ inv.total_value }}</td>
+                <td>{{ inv.po_number }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

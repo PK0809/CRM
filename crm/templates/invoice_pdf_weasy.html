@@ -1,0 +1,200 @@
+﻿{% load static %}{% spaceless %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            margin: 20px;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            font-size: 11px;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #999;
+            padding: 6px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f3f3f3;
+        }
+
+        .totals td {
+            padding: 6px;
+            text-align: right;
+        }
+
+            .totals td:first-child {
+                text-align: left;
+            }
+
+        .footer, .signature {
+            margin-top: 30px;
+            font-size: 10px;
+        }
+
+        .signature {
+            text-align: right;
+            margin-top: 60px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header Box Left Logo, Center Address, Right TAX INVOICE -->
+    <div style="border: 1px solid #999; padding: 10px;">
+        <table style="width: 100%; vertical-align: middle;">
+            <tr>
+                <td style="width: 20%; vertical-align: middle; text-align: left;">
+                    <img src="/static/images/logo.png" style="width: 130px; height: auto;">
+                </td>
+                <td style="width: 50%; vertical-align: middle; text-align: center; font-size: 12px; line-height: 1.5;">
+                    <strong style="font-size: 15px;">iSecure Solutions, a Brand of B16Ventures</strong><br>
+                    #60 Swarupa, 5th West Cr, Riches Garden, RM Nagar,<br>
+                    Bangalore 560016 | Ph: 916 916 8216<br>
+                    support@isecuresolutions.in | www.isecuresolutions.in<br>
+                    GSTIN: 29AVXPP2341P1ZJ &nbsp;
+                </td>
+                <td style="width: 30%; vertical-align: middle; text-align: right;">
+                    <div style="font-size: 19px; font-weight: bold;">TAX INVOICE</div>
+                    <div style="margin-top: 10px; font-size: 12px;"><strong>Invoice# {{ invoice.invoice_no }}</strong></div>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <!-- Invoice Info, Bill To, Ship To Section -->
+    <table style="width: 100%; border: 1px solid #999; font-size: 11px; margin-top: 15px;">
+        <tr>
+            <td style="width: 30%; vertical-align: top; padding: 6px;">
+                <table style="width: 100%; border: none; border-collapse: collapse; font-size: 11px;">
+                    <tr><td style="border: none;"><strong>Invoice Date</strong></td><td style="border: none; width: 10px;">:</td><td style="border: none;"><strong>{{ invoice.created_at|date:"d/m/Y" }}</strong></td></tr>
+                    <tr><td style="border: none;"><strong>Terms</strong></td><td style="border: none; width: 10px;">:</td><td style="border: none;"><strong>Net {{ invoice.credit_days|default:"0" }}</strong></td></tr>
+                    <tr><td style="border: none;"><strong>Due Date</strong></td><td style="border: none; width: 10px;">:</td><td style="border: none;"><strong>{{ due_date|default:'-'|date:"d/m/Y" }}</strong></td></tr>
+                    <tr><td style="border: none;"><strong>P.O #</strong></td><td style="border: none; width: 10px;">:</td><td style="border: none;"><strong>{{ estimation.po_number }}</strong></td></tr>
+                    <tr><td style="border: none;"><strong>Quote No</strong></td><td style="border: none; width: 10px;">:</td><td style="border: none;"><strong>{{ estimation.quote_no }}</strong></td></tr>
+                </table>
+            </td>
+            <td style="width: 35%; vertical-align: top; padding: 6px;">
+                <strong>Bill To :</strong><br>
+                <span style="color:#003399; font-weight: bold;">{{ estimation.company_name|default:"-" }}</span><br>
+                {{ estimation.billing_address|linebreaksbr }}<br>
+                GSTIN {{ estimation.gst_no }}
+            </td>
+            <td style="width: 35%; vertical-align: top; padding: 6px;">
+                <strong>Ship To :</strong><br>
+                <span style="color:#003399; font-weight: bold;">{{ estimation.company_name|default:"-" }}</span><br>
+                {{ estimation.shipping_address|linebreaksbr }}
+            </td>
+        </tr>
+    </table>
+
+    <!-- Item Table -->
+    <table style="margin-top: 20px;">
+        <thead>
+            <tr>
+                <th style="width: 5%; text-align: left;">#</th>
+                <th style="width: 50%; text-align: left;">Description</th>
+                <th style="width: 7%; text-align: right;">Qty</th>
+                <th style="width: 8%; text-align: right;">Units</th>
+                <th style="width: 10%; text-align: right;">Rate</th>
+                <th style="width: 10%; text-align: right;">Tax %</th>
+                <th style="width: 10%; text-align: right;">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td style="text-align: left;">{{ forloop.counter }}</td>
+                <td style="text-align: left;">{{ item.item_details }}</td>
+                <td style="text-align: right; white-space: nowrap;">{{ item.quantity }}</td>
+                <td style="text-align: right; white-space: nowrap;">Nos</td>
+                <td style="text-align: right; white-space: nowrap;">{{ item.rate }}</td>
+                <td style="width: 10%; text-align: right; white-space: nowrap;">{{ item.tax|floatformat:0 }}%</td>
+                <td style="text-align: right; white-space: nowrap;">{{ item.amount }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+
+    <!-- Totals and Tax -->
+    <table style="width: 100%; border: 1px solid #999; font-size: 11px;">
+        <tr>
+            <td style="width: 70%; border: 1px solid #999; padding: 6px;">
+                <strong>Notes:</strong> Thanks for your business. We would like to serve you again
+            </td>
+            <td style="width: 30%; border: 1px solid #999; padding: 0;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="border: 1px solid #999; padding: 6px;">Sub Total</td>
+                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">{{ estimation.sub_total }}</td>
+                    </tr>
+                    {% if same_state %}
+                    <tr>
+                        <td style="border: 1px solid #999; padding: 6px;">SGST (9%)</td>
+                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">{{ sgst }}</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid #999; padding: 6px;">CGST (9%)</td>
+                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">{{ cgst }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td style="border: 1px solid #999; padding: 6px;">IGST (18%)</td>
+                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">{{ igst }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td style="border: 1px solid #999; padding: 6px;"><strong>Total</strong></td>
+                        <td style="border: 1px solid #999; padding: 6px; text-align: right;"><strong>{{ estimation.total }}</strong></td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Amount in Words and Footer -->
+    <table style="width: 100%; margin-top: 10px; font-size: 11px;">
+        <tr>
+            <td colspan="2" style="border: 1px solid #999; padding: 6px;"><strong>Total In Words :</strong> {{ amount_in_words }}</td>
+        </tr>
+        <tr>
+            <td style="width: 70%; vertical-align: top; border: 1px solid #999; padding: 6px;">
+                <strong>Payment Options</strong><br>
+                <u>For Bank Transfer Please Find the details</u><br>
+                Name: B16 VENTURES<br>
+                Account Number: 233005001741<br>
+                IFSC Code: ICIC0002330<br>
+                Bank: ICICI Bank<br>
+                Branch: RM Nagar, Bangalore
+                <br><br><strong>Terms & Conditions :</strong>
+                <ol style="margin: 0; padding-left: 16px;">
+                    <li>This is a system generated invoice. Hence, signature is not needed.</li>
+                    <li>Payment Terms: 100% Advance Payment.</li>
+                    <li>Service Warranty: Depending upon the Availed Service.</li>
+                    <li>All Products and Accessories Carries Standard OEM Warranty.</li>
+                </ol>
+                For any clarification please write to us at <strong>accounts@isecuresolutions.in</strong>
+                <br><br>
+                LUT Ack No : AD290321597963E<br>
+                Date : 31/03/2025
+            </td>
+            <td style="width: 30%; vertical-align: top; border: 1px solid #999; text-align: center;">
+                For iSecure Solutions
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+{% endspaceless %}

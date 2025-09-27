@@ -1,0 +1,33 @@
+<form method="post">
+    {% csrf_token %}
+    <div class="user-info">
+        {{ form.name.label }} {{ form.name }}
+        {{ form.email.label }} {{ form.email }}
+        {{ form.mobile_number.label }} {{ form.mobile_number }}
+        {{ form.is_admin.label }} {{ form.is_admin }}
+        {{ form.is_active.label }} {{ form.is_active }}
+        {{ form.unlock.label }} {{ form.unlock }}
+    </div>
+
+    <hr>
+    <h4>Assign Permissions</h4>
+
+    <div class="permission-sections" style="display: flex; gap: 2rem;">
+        {% for section, perms in grouped_permissions.items %}
+        <div>
+            <h5>{{ section }} Section</h5>
+            {% for perm in perms %}
+            <label>
+                <input type="checkbox" name="permissions" value="{{ perm.id }}"
+                       {% if perm in form.initial.permissions %}checked{% endif %}>
+                {{ perm.name }}
+            </label><br>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <br><br>
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% url 'user_list' %}" class="btn btn-secondary">Cancel</a>
+</form>
