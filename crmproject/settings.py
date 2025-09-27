@@ -5,40 +5,30 @@ import os
 from pathlib import Path
 import environ
 
-# Base directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Initialize environment variables
-env = environ.Env(
-    DEBUG=(bool, False)
-)
-# Load .env file from project root
+# Load environment variables
+env = environ.Env(DEBUG=(bool, False))
 environ.Env.read_env(BASE_DIR / ".env")
 
-# Security
 SECRET_KEY = env("SECRET_KEY", default="change-me-in-production")
 DEBUG = env.bool("DEBUG", default=False)
 
-# ALLOWED_HOSTS configurable via .env
-ALLOWED_HOSTS = env.list(
-    "ALLOWED_HOSTS",
-    default=[
-        "localhost",
-        "127.0.0.1",
-        "192.168.31.194",
-        "crm.isecuresolutions.in",
-        "www.crm.isecuresolutions.in",
-        ".cfargotunnel.com",
-        ".onrender.com",
-    ],
-)
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[
+    "localhost",
+    "127.0.0.1",
+    "192.168.31.194",
+    "crm.isecuresolutions.in",
+    "www.crm.isecuresolutions.in",
+    ".cfargotunnel.com",
+    ".onrender.com",
+])
 
 # =====================================
-# Proxy / SSL header (fix Bad Request 400)
+# Proxy / SSL header
 # =====================================
-# Trust the X-Forwarded-Proto header from the proxy
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-USE_X_FORWARDED_HOST = True 
+USE_X_FORWARDED_HOST = True
 
 # =====================================
 # Applications
@@ -50,8 +40,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "django_extensions",   # optional dev tool
-    "crm",                 # your custom app
+    "django_extensions",
+    "crm",
 ]
 
 # =====================================
@@ -101,10 +91,7 @@ TEMPLATES = [
 # Database
 # =====================================
 DATABASES = {
-    "default": env.db(
-        "DATABASE_URL",
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
-    )
+    "default": env.db("DATABASE_URL", default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
 }
 
 # =====================================
@@ -123,12 +110,10 @@ AUTH_PASSWORD_VALIDATORS = [
 # Static & Media
 # =====================================
 STATIC_URL = "/static/"
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Whitenoise for production static files
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# Include extra static folders during development
 if DEBUG:
     STATICFILES_DIRS = [
         BASE_DIR / "crm" / "static",
@@ -137,6 +122,9 @@ if DEBUG:
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# ✅ Add this for PDF logo fix
+SITE_URL = env("SITE_URL", default="https://crm.isecuresolutions.in")
 
 # =====================================
 # Authentication Redirects
