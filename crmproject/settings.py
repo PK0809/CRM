@@ -19,7 +19,7 @@ environ.Env.read_env(BASE_DIR / ".env")
 SECRET_KEY = env("SECRET_KEY", default="change-me-in-production")
 DEBUG = env.bool("DEBUG", default=False)
 
-# ✅ ALLOWED_HOSTS now configurable via .env
+# ALLOWED_HOSTS configurable via .env
 ALLOWED_HOSTS = env.list(
     "ALLOWED_HOSTS",
     default=[
@@ -27,8 +27,9 @@ ALLOWED_HOSTS = env.list(
         "127.0.0.1",
         "192.168.31.194",
         "crm.isecuresolutions.in",
+        "www.crm.isecuresolutions.in",
         ".cfargotunnel.com",
-        ".onrender.com",  # Render apps
+        ".onrender.com",
     ],
 )
 
@@ -36,7 +37,7 @@ ALLOWED_HOSTS = env.list(
 # Applications
 # =====================================
 INSTALLED_APPS = [
-    "django.contrib.admin", 
+    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -114,14 +115,13 @@ AUTH_PASSWORD_VALIDATORS = [
 # =====================================
 # Static & Media
 # =====================================
-
 STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "static"  # for collectstatic on Render
+STATIC_ROOT = BASE_DIR / "static"  # For collectstatic on Render
 
-# Whitenoise for production
+# Whitenoise for production static files
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# Only include extra static folders in development
+# Include extra static folders during development
 if DEBUG:
     STATICFILES_DIRS = [
         BASE_DIR / "crm" / "static",
