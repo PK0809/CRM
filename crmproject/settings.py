@@ -88,11 +88,28 @@ TEMPLATES = [
 ]
 
 # =====================================
-# Database
+# Database (SQLite for local, Postgres for production)
 # =====================================
-DATABASES = {
-    "default": env.db("DATABASE_URL", default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
-}
+if env.bool("USE_POSTGRES", default=False):
+    # Production / live DB
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env("DB_NAME"),
+            'USER': env("DB_USER"),
+            'PASSWORD': env("DB_PASS"),
+            'HOST': env("DB_HOST"),
+            'PORT': env("DB_PORT", default="5432"),
+        }
+    }
+else:
+    # Local development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # =====================================
 # Auth & Users
@@ -110,21 +127,19 @@ AUTH_PASSWORD_VALIDATORS = [
 # Static & Media
 # =====================================
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "crm" / "static"]  # For local
 STATIC_ROOT = BASE_DIR / "staticfiles"  # For collectstatic in production
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
+# Local static directories (only if DEBUG)
+STATICFILES_DIRS = [BASE_DIR / "crm" / "static"]
 if DEBUG:
-    STATICFILES_DIRS = [
-        BASE_DIR / "crm" / "static",
-        BASE_DIR / "static_dev",
-    ]
+    STATICFILES_DIRS.append(BASE_DIR / "static_dev")
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# ✅ Add this for PDF logo fix
+# PDF logo fix
 SITE_URL = env("SITE_URL", default="https://crm.isecuresolutions.in")
 
 # =====================================
