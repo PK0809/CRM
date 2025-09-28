@@ -5,14 +5,33 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-0">
 
             <!-- 📎 Left: PO Attachment -->
-            <div class="p-6 border-r border-gray-300 bg-white overflow-auto">
-                <h3 class="text-2xl font-bold mb-4 text-gray-900">Client PO Attachment</h3>
-                {% if estimation.po_attachment %}
-                <iframe src="{{ estimation.po_attachment.url }}" width="100%" height="500"></iframe>
-                {% else %}
+        <div class="p-6 border-r border-gray-300 bg-white overflow-auto">
+            <h3 class="text-2xl font-bold mb-4 text-gray-900">Client PO Attachment</h3>
+
+            {% if estimation.po_attachment %}
+                {% with estimation.po_attachment.url|lower as file_url %}
+                    {% if file_url|slice:"-4:" == ".pdf" %}
+                        <!-- PDF Preview -->
+                        <iframe src="{{ estimation.po_attachment.url }}" width="100%" height="500"></iframe>
+                    {% elif file_url|slice:"-5:" == ".docx" or file_url|slice:"-4:" == ".doc" or file_url|slice:"-5:" == ".xlsx" or file_url|slice:"-4:" == ".xls" %}
+                        <!-- Office files: show download link -->
+                        <p class="text-gray-700">📄 This file type can’t be previewed here.</p>
+                        <a href="{{ estimation.po_attachment.url }}" download
+                        class="mt-2 inline-block bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700">
+                        ⬇️ Download Attachment
+                        </a>
+                    {% else %}
+                        <!-- Images (jpg, png, webp, etc.) -->
+                        <img src="{{ estimation.po_attachment.url }}" 
+                            alt="PO Attachment"
+                            class="max-w-full h-auto rounded shadow border">
+                    {% endif %}
+                {% endwith %}
+            {% else %}
                 <p class="text-gray-500 italic">No attachment available.</p>
-                {% endif %}
-            </div>
+            {% endif %}
+        </div>
+
 
             <!-- 📄 Right: Quotation Details -->
             <div class="p-6 bg-white overflow-auto">
