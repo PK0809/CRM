@@ -961,80 +961,81 @@ from decimal import Decimal
 from .models import Estimation, EstimationItem, DefaultTerms, Client, Lead
 from .forms import EstimationForm
 from .utils import generate_estimation_pdf
+from django.db import transaction
 
 
 def edit_estimation(request, pk):
     estimation = get_object_or_404(Estimation, pk=pk)
 
-    # Fetch supporting data
     clients = Client.objects.all()
     items = EstimationItem.objects.filter(estimation=estimation)
     default_terms = DefaultTerms.objects.first()
     all_leads = Lead.objects.filter(company_name=estimation.company_name)
 
     if request.method == 'POST':
-        print(">>> METHOD:", request.method)
-        print(">>> POST DATA:", request.POST.dict())
-
+        # Use form only for editable fields
         form = EstimationForm(request.POST, instance=estimation)
 
         if form.is_valid():
-            print(">>> FORM VALID ✅")
-            updated_estimation = form.save(commit=False)
+            try:
+                with transaction.atomic():
+                    updated_estimation = form.save(commit=False)
 
-            # Update numeric fields
-            updated_estimation.sub_total = Decimal(request.POST.get('sub_total') or 0)
-            updated_estimation.discount = Decimal(request.POST.get('discount') or 0)
-            updated_estimation.gst_amount = Decimal(request.POST.get('gst_amount') or 0)
-            updated_estimation.total = Decimal(request.POST.get('total') or 0)
+                    # Update numeric fields manually
+                    updated_estimation.sub_total = Decimal(request.POST.get('sub_total') or 0)
+                    updated_estimation.discount = Decimal(request.POST.get('discount') or 0)
+                    updated_estimation.gst_amount = Decimal(request.POST.get('gst_amount') or 0)
+                    updated_estimation.total = Decimal(request.POST.get('total') or 0)
 
-            # Update other fields
-            updated_estimation.terms_conditions = request.POST.get('terms_conditions', '')
-            updated_estimation.quote_date = request.POST.get('quote_date')
-            updated_estimation.validity_days = request.POST.get('validity_days')
-            updated_estimation.lead_no_id = request.POST.get('lead_no') or None
-            updated_estimation.company_name_id = request.POST.get('company_name') or estimation.company_name_id
+                    # Update additional fields
+                    updated_estimation.quote_date = request.POST.get('quote_date')
+                    updated_estimation.validity_days = request.POST.get('validity_days')
+                    updated_estimation.lead_no_id = request.POST.get('lead_no') or None
+                    updated_estimation.terms_conditions = request.POST.get('terms_conditions', '')
 
-            updated_estimation.save()
-            print(">>> Estimation saved with ID:", updated_estimation.id)
+                    # Company name is read-only in form, keep existing
+                    updated_estimation.company_name = estimation.company_name
 
-            # Replace old items
-            EstimationItem.objects.filter(estimation=updated_estimation).delete()
+                    # Save estimation
+                    updated_estimation.save()
 
-            # Save new/edited items
-            item_details = request.POST.getlist('item_details[]')
-            hsn_sacs = request.POST.getlist('hsn_sac[]')
-            quantities = request.POST.getlist('quantity[]')
-            rates = request.POST.getlist('rate[]')
-            taxes = request.POST.getlist('tax[]')
-            amounts = request.POST.getlist('amount[]')
+                    # Delete old items
+                    EstimationItem.objects.filter(estimation=updated_estimation).delete()
 
-            for detail, hsn, qty, rate, tax, amount in zip(
-                item_details, hsn_sacs, quantities, rates, taxes, amounts
-            ):
-                if detail.strip():  # only save non-empty rows
-                    EstimationItem.objects.create(
-                        estimation=updated_estimation,
-                        item_details=detail.strip(),
-                        hsn_sac=hsn.strip() if hsn else None,
-                        quantity=int(qty or 0),
-                        rate=Decimal(rate or 0),
-                        tax=Decimal(tax or 0),
-                        amount=Decimal(amount or 0),
-                    )
+                    # Save new/edited items
+                    item_details = request.POST.getlist('item_details[]')
+                    hsn_sacs = request.POST.getlist('hsn_sac[]')
+                    quantities = request.POST.getlist('quantity[]')
+                    rates = request.POST.getlist('rate[]')
+                    taxes = request.POST.getlist('tax[]')
+                    amounts = request.POST.getlist('amount[]')
 
-            print(">>> Items saved:", EstimationItem.objects.filter(estimation=updated_estimation).count())
+                    for detail, hsn, qty, rate, tax, amount in zip(
+                        item_details, hsn_sacs, quantities, rates, taxes, amounts
+                    ):
+                        if detail.strip():
+                            EstimationItem.objects.create(
+                                estimation=updated_estimation,
+                                item_details=detail.strip(),
+                                hsn_sac=hsn.strip() if hsn else None,
+                                quantity=int(qty or 0),
+                                rate=Decimal(rate or 0),
+                                tax=Decimal(tax or 0),
+                                amount=Decimal(amount or 0),
+                            )
 
-            # Regenerate PDF
-            generate_estimation_pdf(updated_estimation)
-            print(">>> PDF generated successfully")
+                    # Regenerate PDF
+                    generate_estimation_pdf(updated_estimation)
 
-            print(">>> Redirecting to estimation_list 🚀")
-            return redirect('estimation_list')
+                    return redirect('estimation')
+
+            except Exception as e:
+                print(">>> ERROR saving estimation:", e)
+                form.add_error(None, f"Error saving quotation: {e}")
 
         else:
             print(">>> FORM INVALID ❌")
-            print(">>> ERRORS:", form.errors)
+            print(form.errors)
 
     else:
         form = EstimationForm(instance=estimation)

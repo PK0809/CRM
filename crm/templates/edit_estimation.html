@@ -7,14 +7,12 @@
 
     {% if error %}
     <div class="flex items-center gap-2 bg-red-100 text-red-700 p-3 rounded-lg mb-4 animate-pulse">
-        <svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-9V5h2v4h-2zm0 4h2v-2h-2v2z" /></svg>
         {{ error }}
     </div>
     {% endif %}
 
     {% if success %}
     <div class="flex items-center gap-2 bg-green-200 text-green-800 p-3 rounded-lg mb-3 animate-pulse">
-        <svg class="w-5 h-5 text-green-700" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 00-1.414 0L9 11.586 6.707 9.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l7-7a1 1 0 000-1.414z" /></svg>
         {{ success }}
     </div>
     {% endif %}
@@ -26,21 +24,22 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <div>
                 <label class="block font-semibold mb-2 text-gray-700">Company Name</label>
-                <input type="text" name="company_name" value="{{ estimation.company_name.company_name }}"
-                       readonly class="w-full border px-3 py-2 rounded-lg bg-gray-100 focus:ring-2 focus:ring-blue-500">
+                <select name="company_name" id="company_name" required class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm">
+                    <option value="">-- Select Client --</option>
+                    {% for client in clients %}
+                    <option value="{{ client.id }}" {% if estimation.company_name.id == client.id %}selected{% endif %}>{{ client.company_name }}</option>
+                    {% endfor %}
+                </select>
             </div>
 
             <div>
                 <label class="block font-semibold mb-2 text-gray-700">Quote Date</label>
-                <input type="date"
-                       name="quote_date"
-                       value="{{ estimation.quote_date|date:'Y-m-d' }}"
-                       class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                <input type="date" name="quote_date" id="quote_date" value="{{ estimation.quote_date|date:'Y-m-d' }}" class="w-full border px-3 py-2 rounded-lg bg-gray-100 focus:ring-2 focus:ring-blue-500">
             </div>
 
-            <div class="lg:col-span-1">
+            <div>
                 <label class="block font-semibold mb-2 text-gray-700">Lead No</label>
-                <select name="lead_no" class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <select name="lead_no" id="lead_no" class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500">
                     <option value="">-- Select Lead --</option>
                     {% for lead in all_leads %}
                     <option value="{{ lead.id }}" {% if estimation.lead_no and estimation.lead_no.id == lead.id %}selected{% endif %}>
@@ -121,20 +120,11 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <!-- If no items exist, show a blank row -->
                         <tr class="hover:bg-gray-50 transition-colors duration-200">
-                            <td class="border px-2 py-1">
-                                <input type="text" name="item_details[]" class="w-full border rounded px-2 py-1 focus:ring-1 focus:ring-blue-400">
-                            </td>
-                            <td class="border px-2 py-1">
-                                <input type="text" name="hsn_sac[]" class="w-full border rounded px-2 py-1 focus:ring-1 focus:ring-blue-400">
-                            </td>
-                            <td class="border px-2 py-1">
-                                <input type="number" name="quantity[]" min="0" class="w-full border rounded px-2 py-1" oninput="calculateTotal()">
-                            </td>
-                            <td class="border px-2 py-1">
-                                <input type="number" name="rate[]" class="w-full border rounded px-2 py-1" oninput="calculateTotal()">
-                            </td>
+                            <td class="border px-2 py-1"><input type="text" name="item_details[]" class="w-full border rounded px-2 py-1 focus:ring-1 focus:ring-blue-400"></td>
+                            <td class="border px-2 py-1"><input type="text" name="hsn_sac[]" class="w-full border rounded px-2 py-1 focus:ring-1 focus:ring-blue-400"></td>
+                            <td class="border px-2 py-1"><input type="number" name="quantity[]" min="0" class="w-full border rounded px-2 py-1" oninput="calculateTotal()"></td>
+                            <td class="border px-2 py-1"><input type="number" name="rate[]" class="w-full border rounded px-2 py-1" oninput="calculateTotal()"></td>
                             <td class="border px-2 py-1">
                                 <select name="tax[]" class="w-full border rounded px-2 py-1" onchange="calculateTotal()">
                                     <option value="18">18%</option>
@@ -144,91 +134,127 @@
                                     <option value="0">0%</option>
                                 </select>
                             </td>
-                            <td class="border px-2 py-1">
-                                <input type="text" name="amount[]" class="w-full border rounded px-2 py-1 bg-gray-100" readonly>
-                            </td>
-                            <td class="border px-2 py-1 text-center">
-                                <button type="button" onclick="removeRow(this)" class="text-red-600 font-bold hover:text-red-800">✖</button>
-                            </td>
+                            <td class="border px-2 py-1"><input type="text" name="amount[]" class="w-full border rounded px-2 py-1 bg-gray-100" readonly></td>
+                            <td class="border px-2 py-1 text-center"><button type="button" onclick="removeRow(this)" class="text-red-600 font-bold hover:text-red-800">✖</button></td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            <button type="button" id="addItemBtn" class="mt-3 text-sm text-blue-700 hover:underline">➕ Add Item</button>
+            <button type="button" class="mt-3 text-sm text-blue-700 hover:underline" onclick="addRow()">➕ Add Item</button>
+        </div>
+
+        <!-- Totals Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            <div class="bg-gray-50 p-3 rounded-lg shadow-sm">
+                <label class="font-semibold text-gray-700">Sub Total (₹)</label>
+                <input type="text" id="sub_total" name="sub_total" readonly class="w-full border rounded px-2 py-1 bg-gray-100">
+            </div>
+            <div class="bg-gray-50 p-3 rounded-lg shadow-sm">
+                <label class="font-semibold text-gray-700">Discount (₹)</label>
+                <input type="number" id="discount" name="discount" value="{{ estimation.discount }}" class="w-full border rounded px-2 py-1" oninput="calculateTotal()">
+            </div>
+            <div class="bg-gray-50 p-3 rounded-lg shadow-sm">
+                <label class="font-semibold text-gray-700">GST (₹)</label>
+                <input type="text" id="gst_total" name="gst_amount" value="{{ estimation.gst_amount }}" readonly class="w-full border rounded px-2 py-1 bg-gray-100">
+            </div>
+            <div class="md:col-span-3 bg-green-100 p-4 rounded-lg shadow-lg">
+                <label class="font-bold text-lg text-gray-800">Total (₹)</label>
+                <input type="text" id="total" name="total" value="{{ estimation.total }}" readonly class="w-full border rounded px-2 py-2 text-xl font-bold bg-green-50 text-green-800">
+            </div>
         </div>
 
         <!-- Terms & Conditions -->
         <div class="mt-6">
             <label for="terms_conditions" class="block font-semibold mb-2 text-gray-700">Terms & Conditions</label>
-            <textarea name="terms_conditions" rows="6" class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500">
-        {{ form.terms_conditions.value|default:terms }}
-    </textarea>
+            <textarea name="terms_conditions" rows="6" class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500">{{ form.terms_conditions.value|default:terms }}</textarea>
         </div>
 
-        <!-- Hidden Fields for Totals -->
-        <input type="hidden" id="sub_total" name="sub_total" value="{{ estimation.sub_total }}">
-        <input type="hidden" id="discount" name="discount" value="{{ estimation.discount }}">
-        <input type="hidden" id="gst_amount" name="gst_amount" value="{{ estimation.gst_amount }}">
-        <input type="hidden" id="total" name="total" value="{{ estimation.total }}">
-
         <!-- Submit -->
-        <button type="submit"
-                class="w-full bg-green-600 text-white py-3 rounded-xl text-lg font-bold hover:bg-green-700 shadow-lg mt-6 transition-colors duration-300">
-            Submit Quotation
+        <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-xl text-lg font-bold hover:bg-green-700 shadow-lg mt-6 transition-colors duration-300">
+            Update Quotation
         </button>
+    </form>
+</div>
 
+<script>
+function addRow() {
+    const row = document.querySelector('#itemsBody tr').cloneNode(true);
+    row.querySelectorAll('input').forEach(input => input.value = '');
+    row.querySelectorAll('select').forEach(sel => sel.selectedIndex = 0);
+    document.getElementById('itemsBody').appendChild(row);
+    calculateTotal();
+}
 
-        <script>
-            function calculateTotal() {
-                let subTotal = 0, gstTotal = 0;
-                const qtys = document.getElementsByName('quantity[]');
-                const rates = document.getElementsByName('rate[]');
-                const taxes = document.getElementsByName('tax[]');
-                const amounts = document.getElementsByName('amount[]');
+function removeRow(button) {
+    const row = button.closest('tr');
+    if (document.querySelectorAll('#itemsBody tr').length > 1) {
+        row.remove();
+        calculateTotal();
+    }
+}
 
-                for (let i = 0; i < qtys.length; i++) {
-                    const qty = parseFloat(qtys[i].value) || 0;
-                    const rate = parseFloat(rates[i].value) || 0;
-                    const tax = parseFloat(taxes[i].value) || 0;
-                    const amount = qty * rate;
-                    const taxAmount = (amount * tax) / 100;
-                    amounts[i].value = (amount + taxAmount).toFixed(2);
-                    subTotal += amount;
-                    gstTotal += taxAmount;
-                }
+function calculateTotal() {
+    let subTotal = 0, gstTotal = 0;
+    const qtys = document.getElementsByName('quantity[]');
+    const rates = document.getElementsByName('rate[]');
+    const taxes = document.getElementsByName('tax[]');
+    const amounts = document.getElementsByName('amount[]');
 
-                const discount = parseFloat(document.getElementById('discount').value) || 0;
-                const total = subTotal + gstTotal - discount;
+    for (let i = 0; i < qtys.length; i++) {
+        const qty = parseFloat(qtys[i].value) || 0;
+        const rate = parseFloat(rates[i].value) || 0;
+        const tax = parseFloat(taxes[i].value) || 0;
+        const amount = qty * rate;
+        const taxAmount = (amount * tax) / 100;
+        amounts[i].value = (amount + taxAmount).toFixed(2);
+        subTotal += amount;
+        gstTotal += taxAmount;
+    }
 
-                document.getElementById('sub_total').value = subTotal.toFixed(2);
-                document.getElementById('gst_total').value = gstTotal.toFixed(2);
-                document.getElementById('total').value = total.toFixed(2);
-            }
+    const discount = parseFloat(document.getElementById('discount').value) || 0;
+    const total = subTotal + gstTotal - discount;
 
-            function addRow() {
-                const tbody = document.getElementById('itemsBody');
-                const firstRow = tbody.querySelector('tr');
-                const newRow = firstRow.cloneNode(true);
+    document.getElementById('sub_total').value = subTotal.toFixed(2);
+    document.getElementById('gst_total').value = gstTotal.toFixed(2);
+    document.getElementById('total').value = total.toFixed(2);
+}
 
-                // Clear values in cloned row
-                newRow.querySelectorAll('input').forEach(input => input.value = '');
-                newRow.querySelectorAll('select').forEach(sel => sel.selectedIndex = 0);
+// Prepopulate quote date
+window.onload = function () {
+    if(!document.getElementById('quote_date').value) {
+        document.getElementById('quote_date').value = new Date().toISOString().split('T')[0];
+    }
+};
 
-                tbody.appendChild(newRow);
-            }
+// Client GST & Leads (optional AJAX if needed)
+document.addEventListener("DOMContentLoaded", function () {
+    const companySelect = document.getElementById("company_name");
+    const leadSelect = document.getElementById("lead_no");
+    const gstInput = document.querySelector('input[name="gst_no"]');
 
-            function removeRow(btn) {
-                const tbody = document.getElementById('itemsBody');
-                if (tbody.querySelectorAll('tr').length > 1) {
-                    btn.closest('tr').remove();
-                    calculateTotal();
-                }
-            }
+    companySelect.addEventListener("change", function () {
+        const clientId = this.value;
+        leadSelect.innerHTML = '<option value="">-- Select Lead --</option>';
+        gstInput.value = "";
 
-            // Attach click event after DOM is ready
-            document.addEventListener('DOMContentLoaded', function () {
-                document.getElementById('addItemBtn').addEventListener('click', addRow);
-            });
-        </script>
-        {% endblock %}
+        if (clientId) {
+            fetch(`/get-pending-leads/?client_id=${clientId}`)
+                .then(res => res.json())
+                .then(data => {
+                    data.leads.forEach(lead => {
+                        const opt = document.createElement("option");
+                        opt.value = lead.id;
+                        opt.text = lead.lead_no;
+                        leadSelect.appendChild(opt);
+                    });
+                });
+
+            fetch(`/get-gst-no/?client_id=${clientId}`)
+                .then(res => res.json())
+                .then(data => { gstInput.value = data.gst_no || ""; });
+        }
+    });
+});
+</script>
+{% endblock %}
