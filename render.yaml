@@ -3,10 +3,18 @@ services:
     name: isecure-crm
     env: python
     buildCommand: "python manage.py collectstatic --noinput"
-    startCommand: "gunicorn your_project_name.wsgi:application"
+    startCommand: "gunicorn crmproject.wsgi:application"
     staticPublishPath: staticfiles
     envVars:
       - key: DEBUG
         value: "False"
       - key: DJANGO_SETTINGS_MODULE
-        value: "your_project_name.settings"
+        value: "crmproject.settings"
+      - key: SECRET_KEY
+        value: "dy)#&kpi*)tgy=#%qu23ip7_xxk9)plw0fh7ltsv=31=u98lv!"  # Replace with your actual key
+      - key: ALLOWED_HOSTS
+        value: "www.crm.isecuresolutions.in,crm.isecuresolutions.in,.cfargotunnel.com,.onrender.com"
+      - key: SITE_URL
+        value: "https://crm.isecuresolutions.in"
+      - key: USE_POSTGRES
+        value: "False"  # Set to "True" if you're using PostgreSQL
