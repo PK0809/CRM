@@ -4,7 +4,6 @@
 import os
 from pathlib import Path
 import environ
-import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -123,9 +122,10 @@ if USE_POSTGRES:
     }
 else:
     DATABASES = {
-        "default": dj_database_url.parse(
-            env("DATABASE_URL", default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
-        )
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": str(BASE_DIR / "db.sqlite3"),
+        }
     }
 
 # =====================================
