@@ -4,7 +4,6 @@
 import os
 from pathlib import Path
 import environ
-from decouple import config  # Not used but imported; consider removing if unnecessary
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
