@@ -4,7 +4,6 @@
 import os
 from pathlib import Path
 import environ
-import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -108,23 +107,6 @@ if USE_POSTGRES:
         if not env(var, default=None):
             raise Exception(f"❌ Missing {var} in .env while USE_POSTGRES=True")
 
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": env("DB_NAME"),
-            "USER": env("DB_USER"),
-            "PASSWORD": env("DB_PASS"),
-            "HOST": env("DB_HOST"),
-            "PORT": env("DB_PORT", default="5432"),
-            "OPTIONS": {
-                "sslmode": "require",
-            },
-        }
-    }
-else:
-    DATABASES = {
-        "default": dj_database_url.parse(env("DATABASE_URL", default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"))
-    }
 
 # =====================================
 # Authentication & Users
