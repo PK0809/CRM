@@ -1,50 +1,46 @@
-# =====================================
-# Security & Environment
-# =====================================
 import os
 from pathlib import Path
 import environ
 import dj_database_url
 
+# =====================================
+# Base directory
+# =====================================
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# =====================================
 # Initialize django-environ
+# =====================================
 env = environ.Env(
     DEBUG=(bool, False),
-    USE_POSTGRES=(bool, True),
 )
-
-# Load .env if exists
 env_file = BASE_DIR / ".env"
 if env_file.exists():
     environ.Env.read_env(env_file)
 else:
-    print("⚠️  .env file not found at", env_file)
-
-# Core settings
-SECRET_KEY = env("SECRET_KEY", default="change-me-in-production")
-DEBUG = env.bool("DEBUG", default=False)
-
-ALLOWED_HOSTS = env.list(
-    "ALLOWED_HOSTS",
-    default=[
-        "localhost",
-        "127.0.0.1",
-        ".onrender.com",
-        "crm.isecuresolutions.in",
-        "www.crm.isecuresolutions.in",
-        ".cfargotunnel.com",
-    ],
-)
+    print("⚠️ .env file not found at", env_file)
 
 # =====================================
-# Proxy / SSL header
+# Security & Environment
+# =====================================
+SECRET_KEY = env("SECRET_KEY")
+DEBUG = env.bool("DEBUG", default=False)
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
+
+# =====================================
+# SSL / Proxy settings for Render
 # =====================================
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
+CSRF_TRUSTED_ORIGINS = [
+    "https://crm.isecuresolutions.in",
+    "https://www.crm.isecuresolutions.in",
+    "https://*.onrender.com",
+    "https://*.cfargotunnel.com",
+]
 
 # =====================================
-# Applications
+# Installed apps
 # =====================================
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -72,7 +68,7 @@ MIDDLEWARE = [
 ]
 
 # =====================================
-# URL and WSGI application
+# URL & WSGI
 # =====================================
 ROOT_URLCONF = "crmproject.urls"
 WSGI_APPLICATION = "crmproject.wsgi.application"
@@ -83,10 +79,7 @@ WSGI_APPLICATION = "crmproject.wsgi.application"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [
-            BASE_DIR / "crm" / "templates",
-            BASE_DIR / "templates",
-        ],
+        "DIRS": [BASE_DIR / "crm" / "templates", BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -101,28 +94,18 @@ TEMPLATES = [
 ]
 
 # =====================================
-# Database configuration
+# Database
 # =====================================
-USE_POSTGRES = env.bool("USE_POSTGRES", default=True)
-
-if USE_POSTGRES:
-    DATABASES = {
-        "default": dj_database_url.config(
-            default=env("DATABASE_URL"),
-            conn_max_age=600,
-            ssl_require=True,
-        )
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+DATABASES = {
+    "default": dj_database_url.config(
+        default=env("DATABASE_URL"),
+        conn_max_age=600,
+        ssl_require=True,
+    )
+}
 
 # =====================================
-# Authentication & Users
+# Authentication
 # =====================================
 AUTH_USER_MODEL = "crm.User"
 
@@ -133,31 +116,23 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/dashboard/"
+LOGOUT_REDIRECT_URL = "/login/"
+
 # =====================================
-# Static and Media files configuration
+# Static & Media files
 # =====================================
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-STATICFILES_DIRS = [
-    BASE_DIR / "crm" / "static",
-]
-
-if DEBUG and (BASE_DIR / "static_dev").exists():
-    STATICFILES_DIRS.append(BASE_DIR / "static_dev")
+STATICFILES_DIRS = [BASE_DIR / "crm" / "static"]
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-SITE_URL = env("SITE_URL", default="https://crm.isecuresolutions.in")
-
-# =====================================
-# Authentication Redirect URLs
-# =====================================
-LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/dashboard/"
-LOGOUT_REDIRECT_URL = "/login/"
+SITE_URL = env("SITE_URL")
 
 # =====================================
 # Internationalization
@@ -166,13 +141,3 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Kolkata"
 USE_I18N = True
 USE_TZ = True
-
-# =====================================
-# CSRF Trusted Origins
-# =====================================
-CSRF_TRUSTED_ORIGINS = [
-    "https://crm.isecuresolutions.in",
-    "https://www.crm.isecuresolutions.in",
-    "https://*.onrender.com",
-    "https://*.cfargotunnel.com",
-]
