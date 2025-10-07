@@ -94,14 +94,19 @@ TEMPLATES = [
 ]
 
 # =====================================
-# Database
+# Database (Render PostgreSQL)
 # =====================================
 DATABASES = {
     "default": dj_database_url.config(
         default=env("DATABASE_URL"),
         conn_max_age=600,
-        sslmode="require", 
+        ssl_require=False,  # ✅ prevent duplicate SSL enforcement
     )
+}
+
+# ✅ Add SSL mode for Django safely
+DATABASES["default"]["OPTIONS"] = {
+    "sslmode": "require"
 }
 
 # =====================================
