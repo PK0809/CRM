@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Initialize django-environ
 # =====================================
 env = environ.Env(
-    DEBUG=(bool, True),
+    DEBUG=(bool, False),
 )
 env_file = BASE_DIR / ".env"
 if env_file.exists():
@@ -24,7 +24,7 @@ else:
 # Security & Environment
 # =====================================
 SECRET_KEY = env("SECRET_KEY")
-DEBUG = env.bool("DEBUG", default=True)
+DEBUG = env.bool("DEBUG", default=False)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 
 # =====================================
@@ -104,10 +104,10 @@ DATABASES = {
     )
 }
 
-# ✅ Add SSL mode for Django safely
-DATABASES["default"]["OPTIONS"] = {
-    "sslmode": "require"
-}
+# ✅ Ensure SSL mode works for Render PostgreSQL
+if "OPTIONS" not in DATABASES["default"]:
+    DATABASES["default"]["OPTIONS"] = {}
+DATABASES["default"]["OPTIONS"]["sslmode"] = "require"
 
 # =====================================
 # Authentication
