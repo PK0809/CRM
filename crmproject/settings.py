@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Initialize django-environ
 # =====================================
 env = environ.Env(
-    DEBUG=(bool, False),
+    DEBUG=(bool, True),
 )
 env_file = BASE_DIR / ".env"
 if env_file.exists():
@@ -24,7 +24,7 @@ else:
 # Security & Environment
 # =====================================
 SECRET_KEY = env("SECRET_KEY")
-DEBUG = env.bool("DEBUG", default=False)
+DEBUG = env.bool("DEBUG", default=True)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 
 # =====================================
