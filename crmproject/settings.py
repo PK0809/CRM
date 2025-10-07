@@ -11,6 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Initialize django-environ
 env = environ.Env(
     DEBUG=(bool, False),
+    USE_POSTGRES=(bool, True),
 )
 
 # Load .env if exists
@@ -102,14 +103,23 @@ TEMPLATES = [
 # =====================================
 # Database configuration
 # =====================================
-DATABASE_URL = env(
-    "DATABASE_URL",
-    default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-)
+USE_POSTGRES = env.bool("USE_POSTGRES", default=True)
 
-DATABASES = {
-    "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)
-}
+if USE_POSTGRES:
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=env("DATABASE_URL"),
+            conn_max_age=600,
+            ssl_require=True,
+        )
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # =====================================
 # Authentication & Users
@@ -130,8 +140,11 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-STATICFILES_DIRS = [BASE_DIR / "crm" / "static"]
-if DEBUG:
+STATICFILES_DIRS = [
+    BASE_DIR / "crm" / "static",
+]
+
+if DEBUG and (BASE_DIR / "static_dev").exists():
     STATICFILES_DIRS.append(BASE_DIR / "static_dev")
 
 MEDIA_URL = "/media/"
