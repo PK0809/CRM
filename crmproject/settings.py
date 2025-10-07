@@ -4,36 +4,37 @@
 import os
 from pathlib import Path
 import environ
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Initialize django-environ
 env = environ.Env(
     DEBUG=(bool, False),
-    USE_POSTGRES=(bool, False),
 )
 
-# Load .env file if it exists
+# Load .env if exists
 env_file = BASE_DIR / ".env"
 if env_file.exists():
     environ.Env.read_env(env_file)
 else:
-    print("⚠️ .env file not found at", env_file)
+    print("⚠️  .env file not found at", env_file)
 
 # Core settings
 SECRET_KEY = env("SECRET_KEY", default="change-me-in-production")
 DEBUG = env.bool("DEBUG", default=False)
-USE_POSTGRES = env.bool("USE_POSTGRES", default=False)
 
-# Host validation
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[
-    "localhost",
-    "127.0.0.1",
-    "crm.isecuresolutions.in",
-    "www.crm.isecuresolutions.in",
-    ".cfargotunnel.com",
-    ".onrender.com",
-])
+ALLOWED_HOSTS = env.list(
+    "ALLOWED_HOSTS",
+    default=[
+        "localhost",
+        "127.0.0.1",
+        ".onrender.com",
+        "crm.isecuresolutions.in",
+        "www.crm.isecuresolutions.in",
+        ".cfargotunnel.com",
+    ],
+)
 
 # =====================================
 # Proxy / SSL header
@@ -101,32 +102,14 @@ TEMPLATES = [
 # =====================================
 # Database configuration
 # =====================================
-if USE_POSTGRES:
-    required_vars = ["DB_NAME", "DB_USER", "DB_PASS", "DB_HOST"]
-    for var in required_vars:
-        if not env(var, default=None):
-            raise Exception(f"❌ Missing {var} in .env while USE_POSTGRES=True")
+DATABASE_URL = env(
+    "DATABASE_URL",
+    default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+)
 
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": env("DB_NAME"),
-            "USER": env("DB_USER"),
-            "PASSWORD": env("DB_PASS"),
-            "HOST": env("DB_HOST"),
-            "PORT": env("DB_PORT", default="5432"),
-            "OPTIONS": {
-                "sslmode": "require",
-            },
-        }
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": str(BASE_DIR / "db.sqlite3"),
-        }
-    }
+DATABASES = {
+    "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)
+}
 
 # =====================================
 # Authentication & Users
