@@ -100,7 +100,7 @@ DATABASES = {
     "default": dj_database_url.config(
         default=env("DATABASE_URL"),
         conn_max_age=600,
-        ssl_require=False,  # ✅ prevent duplicate SSL enforcement
+        ssl_require=True,  # ✅ prevent duplicate SSL enforcement
     )
 }
 
