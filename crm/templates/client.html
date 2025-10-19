@@ -169,7 +169,7 @@
               <td class="p-2">{{ client.gst_no|default_if_none:"" }}</td>
               <td class="p-2">
                 {% if perms.crm.change_client %}
-                <a href="{% url 'client_edit' client.id %}"
+                <a href="{% url 'edit_client' client_id=client.id %}"
                    class="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 shadow text-sm font-medium">
                   ✏️ Edit
                 </a>
@@ -243,3 +243,4 @@
   {% endif %}
 </body>
 </html>
+
