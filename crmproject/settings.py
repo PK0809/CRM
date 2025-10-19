@@ -1,47 +1,57 @@
+# Security & Environment
 import os
 from pathlib import Path
 import environ
-import dj_database_url
 
-# =====================================
 # Base directory
-# =====================================
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# =====================================
-# Initialize django-environ
-# =====================================
+# Initialize environment variables
 env = environ.Env(
-    DEBUG=(bool, False),
+    DEBUG=(bool, False)
 )
-env_file = BASE_DIR / ".env"
-if env_file.exists():
-    environ.Env.read_env(env_file)
-else:
-    print("⚠️ .env file not found at", env_file)
 
-# =====================================
-# Security & Environment
-# =====================================
-SECRET_KEY = env("SECRET_KEY")
+# Load .env file from project root
+environ.Env.read_env(env_file=BASE_DIR / ".env")
+
+# SECRET KEY
+SECRET_KEY = env("SECRET_KEY", default="unsafe-secret-key")
+
+# Debug & Hosts
 DEBUG = env.bool("DEBUG", default=False)
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
+ALLOWED_HOSTS = env.list(
+    "ALLOWED_HOSTS",
+    default=[
+        "127.0.0.1",
+        "localhost",
+        "crm.isecuresolutions.in",
+        "www.crm.isecuresolutions.in",
+        "isecuresolutions.in",
+        "www.isecuresolutions.in",
+    ],
+)
 
-# =====================================
-# SSL / Proxy settings for Render
-# =====================================
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-USE_X_FORWARDED_HOST = True
-CSRF_TRUSTED_ORIGINS = [
-    "https://crm.isecuresolutions.in",
-    "https://www.crm.isecuresolutions.in",
-    "https://*.onrender.com",
-    "https://*.cfargotunnel.com",
-]
+# Custom User Model
+AUTH_USER_MODEL = "crm.User"
 
-# =====================================
-# Installed apps
-# =====================================
+# Static & Media
+STATIC_URL = "/static/"
+STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+DEBUG = env.bool("DEBUG", default=False)
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+
+# Auth redirects
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/dashboard/"
+LOGOUT_REDIRECT_URL = "/login/"
+
+# Application definition
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -53,12 +63,9 @@ INSTALLED_APPS = [
     "crm",
 ]
 
-# =====================================
-# Middleware
-# =====================================
 MIDDLEWARE = [
-    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -67,19 +74,15 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-# =====================================
-# URL & WSGI
-# =====================================
 ROOT_URLCONF = "crmproject.urls"
-WSGI_APPLICATION = "crmproject.wsgi.application"
 
-# =====================================
-# Templates
-# =====================================
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "crm" / "templates", BASE_DIR / "templates"],
+        "DIRS": [
+            BASE_DIR / "crm" / "templates",
+            BASE_DIR / "templates",
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -93,27 +96,17 @@ TEMPLATES = [
     },
 ]
 
-# =====================================
-# Database (Render PostgreSQL)
-# =====================================
+WSGI_APPLICATION = "crmproject.wsgi.application"
+
+# Database (PostgreSQL for Render, fallback to SQLite locally)
 DATABASES = {
-    "default": dj_database_url.config(
-        default=env("DATABASE_URL"),
-        conn_max_age=600,
-        ssl_require=True,  # ✅ prevent duplicate SSL enforcement
+    "default": env.db(
+        "DATABASE_URL",
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
     )
 }
 
-# ✅ Ensure SSL mode works for Render PostgreSQL
-if "OPTIONS" not in DATABASES["default"]:
-    DATABASES["default"]["OPTIONS"] = {}
-DATABASES["default"]["OPTIONS"]["sslmode"] = "require"
-
-# =====================================
-# Authentication
-# =====================================
-AUTH_USER_MODEL = "crm.User"
-
+# Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -121,28 +114,10 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/dashboard/"
-LOGOUT_REDIRECT_URL = "/login/"
-
-# =====================================
-# Static & Media files
-# =====================================
-STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
-STATICFILES_DIRS = [BASE_DIR / "crm" / "static"]
-
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
-
-SITE_URL = env("SITE_URL")
-
-# =====================================
 # Internationalization
-# =====================================
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Kolkata"
 USE_I18N = True
 USE_TZ = True
+
+DEBUG = True
