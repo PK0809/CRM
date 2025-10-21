@@ -6,14 +6,14 @@
     <h2 class="text-3xl font-bold mb-8 text-center text-gray-800">Edit Quotation</h2>
 
     {% if error %}
-    <div class="flex items-center gap-2 bg-red-100 text-red-700 p-3 rounded-lg mb-4 animate-pulse">
+    <div class="flex items-center gap-2 bg-red-100 text-red-700 p-3 rounded-lg mb-4">
         {{ error }}
     </div>
     {% endif %}
 
-    {% if success %}
-    <div class="flex items-center gap-2 bg-green-200 text-green-800 p-3 rounded-lg mb-3 animate-pulse">
-        {{ success }}
+    {% if form.non_field_errors %}
+    <div class="flex items-center gap-2 bg-red-100 text-red-700 p-3 rounded-lg mb-4">
+        {{ form.non_field_errors }}
     </div>
     {% endif %}
 
@@ -148,7 +148,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
             <div class="bg-gray-50 p-3 rounded-lg shadow-sm">
                 <label class="font-semibold text-gray-700">Sub Total (₹)</label>
-                <input type="text" id="sub_total" name="sub_total" readonly class="w-full border rounded px-2 py-1 bg-gray-100">
+                <input type="text" id="sub_total" name="sub_total" value="{{ estimation.sub_total }}" readonly class="w-full border rounded px-2 py-1 bg-gray-100">
             </div>
             <div class="bg-gray-50 p-3 rounded-lg shadow-sm">
                 <label class="font-semibold text-gray-700">Discount (₹)</label>
@@ -179,7 +179,9 @@
 
 <script>
 function addRow() {
-    const row = document.querySelector('#itemsBody tr').cloneNode(true);
+    const tplRow = document.querySelector('#itemsBody tr');
+    const row = tplRow ? tplRow.cloneNode(true) : null;
+    if (!row) return;
     row.querySelectorAll('input').forEach(input => input.value = '');
     row.querySelectorAll('select').forEach(sel => sel.selectedIndex = 0);
     document.getElementById('itemsBody').appendChild(row);
@@ -188,7 +190,8 @@ function addRow() {
 
 function removeRow(button) {
     const row = button.closest('tr');
-    if (document.querySelectorAll('#itemsBody tr').length > 1) {
+    const rows = document.querySelectorAll('#itemsBody tr');
+    if (rows.length > 1) {
         row.remove();
         calculateTotal();
     }
@@ -220,14 +223,15 @@ function calculateTotal() {
     document.getElementById('total').value = total.toFixed(2);
 }
 
-// Prepopulate quote date
-window.onload = function () {
-    if(!document.getElementById('quote_date').value) {
+// Initialize values on load
+window.addEventListener('load', function () {
+    if (!document.getElementById('quote_date').value) {
         document.getElementById('quote_date').value = new Date().toISOString().split('T')[0];
     }
-};
+    calculateTotal();
+});
 
-// Client GST & Leads (optional AJAX if needed)
+// Client GST & Leads
 document.addEventListener("DOMContentLoaded", function () {
     const companySelect = document.getElementById("company_name");
     const leadSelect = document.getElementById("lead_no");
