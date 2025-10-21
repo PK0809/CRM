@@ -19,20 +19,23 @@ class LeadForm(forms.ModelForm):
 
 
 from django import forms
-from .models import Estimation, Lead
+from .models import Estimation
 
 class EstimationForm(forms.ModelForm):
     class Meta:
         model = Estimation
+        # Only include fields the user edits in the form
         fields = [
-            "quote_no", "quote_date", "lead_no", "company_name",
-            "validity_days", "gst_no", "billing_address",
-            "shipping_address", "terms_conditions", "bank_details",
-            "sub_total", "discount", "gst_amount", "total",
-            "status", "credit_days", "po_number", "po_date",
-            "po_received_date", "po_attachment", "remarks",
-            "follow_up_date", "follow_up_remarks"
+            "company_name", "lead_no", "quote_date", "validity_days",
+            "gst_no", "billing_address", "shipping_address",
+            "terms_conditions", "bank_details",
         ]
+        widgets = {
+            "quote_date": forms.DateInput(attrs={"type": "date"}),
+            "billing_address": forms.Textarea(attrs={"rows": 3}),
+            "shipping_address": forms.Textarea(attrs={"rows": 3}),
+            "terms_conditions": forms.Textarea(attrs={"rows": 6}),
+        }
 
 
 
