@@ -733,23 +733,36 @@ def invoice_detail_view(request, pk):
         'estimation': estimation, 'items': items, 'invoice': invoice, 'amount_in_words': inr_currency_words(estimation.total),
     })
 
+from django.utils.timezone import now
+from datetime import timedelta
+
 @require_POST
 def approve_invoice(request, est_id):
     estimation = get_object_or_404(Estimation, id=est_id)
     if Invoice.objects.filter(estimation=estimation).exists():
         return redirect('invoice_list')
+
     estimation.status = 'Approved'
     estimation.save()
+
     credit_days = estimation.credit_days or 0
-    due_date = now().date() + timedelta(days=credit_days)
+    # due date will be computed by Invoice.due_date property from created_at + credit_days
     Invoice.objects.create(
-        estimation=estimation, invoice_no=generate_invoice_number(), created_at=now(),
-        total_value=estimation.total, balance_due=estimation.total, due_date=due_date,
-        credit_days=credit_days, remarks=estimation.remarks, is_approved=True, status='Pending'
+        estimation=estimation,
+        invoice_no=generate_invoice_number(),
+        created_at=now(),
+        total_value=estimation.total,
+        balance_due=estimation.total,
+        credit_days=credit_days,
+        remarks=estimation.remarks,
+        is_approved=True,
+        status='Pending',
     )
+
     estimation.status = 'Invoiced'
     estimation.save()
     return redirect('invoice_list')
+
 
 @require_POST
 def generate_invoice_from_estimation(request, pk):
