@@ -368,81 +368,183 @@ def get_gst_no(request):
     except Client.DoesNotExist:
         return JsonResponse({'gst_no': ''})
 
-def generate_and_reserve_quote_no():
-    setting = EstimationSettings.objects.first()
-    if not setting:
-        setting = EstimationSettings.objects.create(prefix="EST", next_number=1)
-    while True:
-        quote_no = f"{setting.prefix}-{setting.next_number:04d}"
-        if not Estimation.objects.filter(quote_no=quote_no).exists():
-            setting.next_number += 1
-            setting.save()
-            return quote_no
-        setting.next_number += 1
-        setting.save()
+from decimal import Decimal, InvalidOperation
+from django.db import transaction
+from django.db.models import F
+from django.utils.timezone import now
+from django.shortcuts import render, redirect, get_object_or_404
 
-def safe_decimal(value):
+from decimal import Decimal, InvalidOperation
+import re
+
+from .models import (
+    Client, Lead, Estimation, EstimationItem,
+    TermsAndConditions, GSTSettings, EstimationSettings
+)
+
+# Plain-text defaults (one item per line, no bullets here)
+DEFAULT_TERMS = """This is a system generated Quotation. Hence, signature is not needed.
+Payment Terms: 100% Advance Payment or As Per Agreed Terms
+Service Warranty 30 to 90 Days Depending upon the Availed Service
+All Products and Accessories Carries Standard OEM Warranty"""
+
+def safe_decimal(value, default='0.00'):
     try:
         return Decimal(value)
     except (InvalidOperation, TypeError, ValueError):
-        return Decimal('0.00')
+        return Decimal(default)
+
+_BULLET_PREFIX = re.compile(r'^\s*[-•]\s*')  # strip leading '-' or '•'
+
+def _split_lines(text: str):
+    """
+    Split on newlines, strip whitespace, drop empties, and remove leading bullets.
+    """
+    lines = []
+    for raw in (text or "").replace("\r\n", "\n").split("\n"):
+        ln = _BULLET_PREFIX.sub("", raw.strip())
+        if ln:
+            lines.append(ln)
+    return lines
+
+def merge_terms_to_html(default_terms_text: str, user_terms_text: str) -> str:
+    """
+    Merge default and user-entered terms into a single HTML <ul> list, de-duplicated,
+    left-aligned with consistent indentation and tight line spacing.
+    The resulting HTML is safe to render with |safe in templates and PDFs.
+    """
+    base = _split_lines(default_terms_text)
+    extra = _split_lines(user_terms_text)
+
+    seen = set()
+    merged = []
+    for ln in base + extra:
+        key = ln.lower()
+        if key not in seen:
+            seen.add(key)
+            merged.append(ln)
+
+    # Tailwind-friendly and PDF-safe left alignment + spacing
+    # If you do not use Tailwind, these inline styles still align correctly.
+    return (
+        '<ul class="list-disc ml-5 leading-snug text-left" '
+        'style="list-style:disc; margin:0 0 0 1.25rem; padding:0; line-height:1.35; text-align:left;">'
+        + "".join(f"<li style='margin:0.2rem 0;'>{ln}</li>" for ln in merged)
+        + "</ul>"
+    )
+
+@transaction.atomic
+def generate_and_reserve_quote_no():
+    """
+    Atomically generate and reserve the next quote number.
+    """
+    setting = (
+        EstimationSettings.objects.select_for_update().first()
+        or EstimationSettings.objects.create(prefix="EST", next_number=1)
+    )
+    while True:
+        quote_no = f"{setting.prefix}-{setting.next_number:04d}"
+        if not Estimation.objects.filter(quote_no=quote_no).exists():
+            setting.next_number = F('next_number') + 1
+            setting.save(update_fields=['next_number'])
+            setting.refresh_from_db(fields=['next_number'])
+            return quote_no
+        setting.next_number = F('next_number') + 1
+        setting.save(update_fields=['next_number'])
+        setting.refresh_from_db(fields=['next_number'])
 
 def create_quotation(request):
-    clients = Client.objects.all()
-    gst_setting = GSTSettings.objects.first()
-    pending_leads = Lead.objects.filter(status='Pending')
-    default_terms = """1) This is a system generated Quotation. Hence, signature is not needed.<br>
-    2) Payment Terms: 100% Advance Payment or As Per Agreed Terms<br>
-    3) Service Warranty 30 to 90 Days Depending upon the Availed Service<br>
-    4) All Products and Accessories Carries Standard OEM Warranty"""
+    clients = Client.objects.all().order_by('company_name')
+    pending_leads = Lead.objects.filter(status='Pending').order_by('-id')
+
+    gst_setting = GSTSettings.objects.order_by('-id').first()
+    gst_percentage = float(getattr(gst_setting, 'gst_percentage', 18.0))
+
+    # Prefer DB terms; fallback to DEFAULT_TERMS literal (plain text)
+    terms_obj = TermsAndConditions.objects.order_by('-id').first()
+    default_terms_text = (terms_obj.content.strip() if terms_obj and terms_obj.content else DEFAULT_TERMS)
+
     if request.method == 'POST':
         company_id = request.POST.get('company_name')
-        lead_id = request.POST.get('lead_no')
+        lead_id = request.POST.get('lead_no') or None
+
         try:
-            quote_no = generate_and_reserve_quote_no()
-            quote_date = now().date()
-            client = Client.objects.get(id=company_id)
-            lead_instance = Lead.objects.get(id=lead_id) if lead_id else None
-            estimation = Estimation.objects.create(
-                quote_no=quote_no, quote_date=quote_date, company_name=client, lead_no=lead_instance,
-                validity_days=request.POST.get('validity_days'), gst_no=request.POST.get('gst_no'),
-                billing_address=request.POST.get('billing_address'), shipping_address=request.POST.get('shipping_address'),
-                terms_conditions=request.POST.get('terms_conditions'), bank_details=request.POST.get('bank_details'),
-                sub_total=safe_decimal(request.POST.get('sub_total')), discount=safe_decimal(request.POST.get('discount')),
-                gst_amount=safe_decimal(request.POST.get('gst_amount')), total=safe_decimal(request.POST.get('total')),
-            )
-            items = zip(
-                request.POST.getlist('item_details[]'), request.POST.getlist('hsn_sac[]'),
-                request.POST.getlist('quantity[]'), request.POST.getlist('rate[]'),
-                request.POST.getlist('tax[]'), request.POST.getlist('amount[]')
-            )
-            for detail, hsn, qty, rate, tax, amt in items:
-                EstimationItem.objects.create(
-                    estimation=estimation, item_details=detail, hsn_sac=hsn.strip() if hsn else "—",
-                    quantity=int(qty or 0), rate=safe_decimal(rate), tax=safe_decimal(tax), amount=safe_decimal(amt)
+            with transaction.atomic():
+                quote_no = generate_and_reserve_quote_no()
+                quote_date = now().date()
+
+                client = get_object_or_404(Client, id=company_id)
+                lead_instance = Lead.objects.filter(id=lead_id).first() if lead_id else None
+
+                # Merge default and user-entered lines into HTML list
+                user_terms_text = request.POST.get('terms_conditions') or ""
+                final_terms_html = merge_terms_to_html(default_terms_text, user_terms_text)
+
+                estimation = Estimation.objects.create(
+                    quote_no=quote_no,
+                    quote_date=quote_date,
+                    company_name=client,
+                    lead_no=lead_instance,
+                    validity_days=int(request.POST.get('validity_days') or 0),
+                    gst_no=(request.POST.get('gst_no') or "").strip(),
+                    billing_address=(request.POST.get('billing_address') or "").strip(),
+                    shipping_address=(request.POST.get('shipping_address') or "").strip(),
+                    terms_conditions=final_terms_html,  # Store aligned HTML list
+                    bank_details=(request.POST.get('bank_details') or "").strip(),
+                    sub_total=safe_decimal(request.POST.get('sub_total')),
+                    discount=safe_decimal(request.POST.get('discount')),
+                    gst_amount=safe_decimal(request.POST.get('gst_amount')),
+                    total=safe_decimal(request.POST.get('total')),
+                    status='Pending',
                 )
-            if lead_instance:
-                if estimation.status in ['Approved', 'Invoiced']:
-                    lead_instance.computed_status = 'Won'
-                elif estimation.status == 'Pending':
+
+                items = zip(
+                    request.POST.getlist('item_details[]'),
+                    request.POST.getlist('hsn_sac[]'),
+                    request.POST.getlist('quantity[]'),
+                    request.POST.getlist('rate[]'),
+                    request.POST.getlist('tax[]'),
+                    request.POST.getlist('amount[]'),
+                )
+
+                for detail, hsn, qty, rate, tax, amt in items:
+                    detail_clean = (detail or "").strip()
+                    if not detail_clean:
+                        continue
+                    EstimationItem.objects.create(
+                        estimation=estimation,
+                        item_details=detail_clean,
+                        hsn_sac=((hsn or "").strip() or None),
+                        quantity=int(qty or 0),
+                        rate=safe_decimal(rate),
+                        tax=safe_decimal(tax),
+                        amount=safe_decimal(amt),
+                    )
+
+                # Optional: update derived lead status
+                if lead_instance:
                     lead_instance.computed_status = 'Quoted'
-                elif estimation.status == 'Lost':
-                    lead_instance.computed_status = 'Lost'
-                else:
-                    lead_instance.computed_status = 'Pending'
-                lead_instance.save()
-            return redirect('estimation')
+                    lead_instance.save(update_fields=['computed_status'])
+
+            return redirect('estimation_list')
+
         except Exception as e:
             return render(request, 'create_quotation.html', {
-                'clients': clients, 'pending_leads': pending_leads,
-                'gst_percentage': gst_setting.percentage if gst_setting else 18.0,
-                'error': f"Something went wrong: {e}"
+                'clients': clients,
+                'pending_leads': pending_leads,
+                'gst_percentage': gst_percentage,
+                'terms': default_terms_text,  # keep default visible
+                'error': f"Something went wrong: {e}",
             })
+
+    # GET
     return render(request, 'create_quotation.html', {
-        'clients': clients, 'pending_leads': pending_leads,
-        'gst_percentage': gst_setting.percentage if gst_setting else 18.0,
-        'terms': default_terms
+        'clients': clients,
+        'pending_leads': pending_leads,
+        'gst_percentage': gst_percentage,
+        'terms': default_terms_text,
     })
+
 
 def quotation_pdf(request, pk):
     quotation = get_object_or_404(Estimation, pk=pk)
