@@ -165,7 +165,7 @@
             {% for client in clients %}
             <tr class="border-t border-gray-200">
               <td class="p-2">{{ client.company_name }}</td>
-              <td class="p-2">{{ client.company_type|default_if_none:"" }}</td>
+              <td class="p-2">{{ client.get_type_of_company_display|default:"" }}</td>
               <td class="p-2">{{ client.gst_no|default_if_none:"" }}</td>
               <td class="p-2">
                 {% if perms.crm.change_client %}
