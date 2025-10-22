@@ -28,8 +28,8 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
 
     # Users
+    path('users/create/', views.create_user, name='create_user'),
     path('users/', views.user_list, name='user_list'),
-    path('users/create/', views.create_user, name='user_create'),
     path('users/<int:pk>/edit/', UserUpdateView.as_view(), name='edit_user'),
     path('users/<int:user_id>/delete/', views.delete_user, name='user_delete'),
     path('get-permissions/', views.get_permissions_by_role, name='get_permissions'),
