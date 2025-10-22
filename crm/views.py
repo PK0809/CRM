@@ -45,54 +45,76 @@ def logout_view(request):
     logout(request)
     return redirect('login')
 
+
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import Permission
+from django.shortcuts import render, redirect
+from django.db import transaction, IntegrityError
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from .models import UserProfile
+
+User = get_user_model()
+
+def _permissions_from_codes(codes):
+    out = []
+    for code in codes:
+        if '.' not in code:
+            continue
+        app_label, codename = code.split('.', 1)
+        try:
+            out.append(Permission.objects.get(content_type__app_label=app_label, codename=codename))
+        except Permission.DoesNotExist:
+            continue
+    return out
+
 @login_required
+@transaction.atomic
 def create_user(request):
     if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
-        email = request.POST.get('email', '').strip()
-        password = request.POST.get('password', '')
-        confirm_password = request.POST.get('confirm_password', '')
-        role = request.POST.get('role', 'User')
-        phone_number = request.POST.get('phone_number', '').strip()
+        username = (request.POST.get('username') or '').strip()
+        email = (request.POST.get('email') or '').strip()
+        password = request.POST.get('password') or ''
+        confirm_password = request.POST.get('confirm_password') or ''
+        role = request.POST.get('role') or 'User'
+        phone_number = (request.POST.get('phone_number') or '').strip()
         selected_permissions = request.POST.getlist('permissions')
 
-        if not username or not password or not confirm_password or not role:
+        # Basic validation
+        if not username or not password or not confirm_password:
             messages.error(request, "All required fields must be filled.")
             return redirect('create_user')
-
         if password != confirm_password:
             messages.error(request, "Passwords do not match.")
             return redirect('create_user')
-
         if User.objects.filter(username=username).exists():
             messages.error(request, "Username already exists.")
             return redirect('create_user')
+        if email and User.objects.filter(email=email).exists():
+            messages.error(request, "Email already exists.")
+            return redirect('create_user')
 
+        # Create user + profile
         try:
             user = User.objects.create_user(username=username, email=email, password=password)
-            user.is_staff = True
-            user.is_superuser = (role == 'Admin')
             user.role = role
+            user.is_staff = (role == 'Admin')
+            user.is_superuser = False
+            if hasattr(user, 'mobile'):
+                user.mobile = phone_number
             user.save()
 
-            user_profile = UserProfile.objects.create(
-                user=user, name=username, email=email, phone_number=phone_number, role=role
-            )
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            profile.name = username
+            profile.phone_number = phone_number
+            if hasattr(profile, 'role'):
+                profile.role = role
+            profile.save()
 
-            if role != 'Admin' and selected_permissions:
-                perms_to_add = []
-                for perm_str in selected_permissions:
-                    try:
-                        app_label, codename = perm_str.split('.')
-                        perm = Permission.objects.get(
-                            content_type__app_label=app_label,
-                            codename=codename
-                        )
-                        perms_to_add.append(perm)
-                    except Permission.DoesNotExist:
-                        messages.warning(request, f"Permission '{perm_str}' not found.")
-                user.user_permissions.set(perms_to_add)
-                user_profile.permissions.set(perms_to_add)
+            if role == 'User':
+                user.user_permissions.set(_permissions_from_codes(selected_permissions))
+            else:
+                user.user_permissions.clear()
 
             messages.success(request, f"{role} '{username}' created successfully.")
             return redirect('user_list')
@@ -100,6 +122,7 @@ def create_user(request):
             messages.error(request, "Database error. Try again.")
             return redirect('create_user')
 
+    # GET branch: always build permissions and render
     permissions = Permission.objects.filter(content_type__app_label='crm').order_by('name')
     return render(request, 'users/add_user.html', {'permissions': permissions})
 
@@ -145,25 +168,43 @@ def delete_user(request, user_id):
     messages.success(request, "User deleted successfully.")
     return redirect('user_list')
 
+
 @login_required
 def get_permissions_by_role(request):
-    role = request.GET.get('role')
+    role = (request.GET.get('role') or '').strip()
+    if not role:
+        return JsonResponse({'error': 'role is required'}, status=400)
+
+    # Show only CRM app permissions to keep the UI focused.
     if role == 'Admin':
-        permissions = Permission.objects.all()
+        qs = Permission.objects.filter(
+            content_type__app_label='crm'
+        ).order_by('content_type__app_label', 'name')
     elif role == 'User':
-        permissions = Permission.objects.filter(
-            codename__in=['view_client', 'view_lead', 'view_estimation', 'view_invoice', 'view_report']
-        )
+        qs = Permission.objects.filter(
+            content_type__app_label='crm',
+            codename__in=[
+                'view_client',
+                'add_client',   # Add New Client
+                'view_lead',
+                'view_estimation',
+                'view_invoice',
+                'view_report',
+            ],
+        ).order_by('content_type__app_label', 'name')
     else:
-        permissions = Permission.objects.none()
+        qs = Permission.objects.none()
+
     permission_list = [
         {
             'id': p.id,
             'name': f"{p.content_type.app_label} | {p.name}",
-            'code': f"{p.content_type.app_label}.{p.codename}"
-        } for p in permissions
+            'code': f"{p.content_type.app_label}.{p.codename}",
+        }
+        for p in qs
     ]
     return JsonResponse({'permissions': permission_list})
+
 
 class UserUpdateView(UpdateView):
     model = User
@@ -179,6 +220,7 @@ def dashboard(request):
     )
     context = {
         "can_view_client": "can_view_client" in user_perm_names,
+        "can_add_client": "can_add_client" in user_perm_names,
         "can_view_lead": "can_view_lead" in user_perm_names,
         "can_view_estimation": "can_view_estimation" in user_perm_names,
         "can_view_invoice": "can_view_invoice" in user_perm_names,
