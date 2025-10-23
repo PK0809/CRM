@@ -588,58 +588,107 @@ def create_quotation(request):
     })
 
 
-def quotation_pdf(request, pk):
-    quotation = get_object_or_404(Estimation, pk=pk)
-    terms_obj = TermsAndConditions.objects.last()
-    terms = terms_obj.content if terms_obj else (quotation.terms_conditions or "")
-    try:
-        items = quotation.items.all()
-    except Exception:
-        items = EstimationItem.objects.filter(estimation=quotation)
-    return render(request, "quotation_pdf.html", {'quotation': quotation, 'items': items, 'terms': terms})
-
+from django.shortcuts import get_object_or_404, render
+from django.http import HttpResponse
+from django.template.loader import render_to_string
 from django.views import View
+from datetime import timedelta
+from pathlib import Path
 from weasyprint import HTML
+from django.conf import settings
+from .models import Estimation, EstimationItem, TermsAndConditions
+from crm.utils import inr_currency_words
+
+def quotation_pdf(request, pk):
+    estimation = get_object_or_404(Estimation, pk=pk)
+    terms_obj = TermsAndConditions.objects.last()
+    terms = terms_obj.content if terms_obj else (estimation.terms_conditions or "")
+    items = estimation.items.all()
+    return render(request, "quotation_pdf.html", {
+        'estimation': estimation,
+        'items': items,
+        'terms': terms,
+        'discount': estimation.discount or 0,
+        'total_after_discount': estimation.total or 0
+    })
+
 
 class QuotationPDFView(View):
     def get(self, request, pk):
         estimation = get_object_or_404(Estimation, pk=pk)
+
+        # Prepare items
         items = [
             {
-                'item_details': item.item_details, 'hsn_sac': item.hsn_sac or "",
-                'quantity': item.quantity, 'rate': item.rate, 'tax': item.tax, 'amount': item.amount
+                'item_details': item.item_details,
+                'hsn_sac': item.hsn_sac or "",
+                'quantity': item.quantity,
+                'rate': item.rate,
+                'tax': item.tax,
+                'amount': item.amount
             } for item in estimation.items.all()
         ]
+
+        # Calculate values
+        sub_total = estimation.sub_total or 0
+        discount = estimation.discount or 0
+        taxable_value = sub_total - discount  # GST is on amount after discount
+
+        gst_amount = estimation.gst_amount or 0  # total GST saved in DB (optional)
         company_gst_state = (estimation.gst_no or "").strip()[:2]
         our_gst_state = "29"
         same_state = company_gst_state == our_gst_state
         gst_rate = 18
+
         if same_state:
-            cgst = sgst = estimation.gst_amount / 2
+            cgst = sgst = taxable_value * (gst_rate/2)/100
             igst = 0
             cgst_rate = sgst_rate = gst_rate / 2
             igst_rate = 0
         else:
             cgst = sgst = 0
-            igst = estimation.gst_amount
+            igst = taxable_value * gst_rate/100
             igst_rate = gst_rate
             cgst_rate = sgst_rate = 0
+
+        total = taxable_value + cgst + sgst + igst
+
+        # Terms & expiry
         terms_obj = TermsAndConditions.objects.order_by('-id').first()
         terms_content = terms_obj.content if terms_obj else (estimation.terms_conditions or "")
         expiry_date = estimation.quote_date + timedelta(days=estimation.validity_days or 0)
-        amount_in_words = inr_currency_words(estimation.total)
+        amount_in_words = inr_currency_words(total)
+
+        # Logo
         logo_path = Path(settings.STATIC_ROOT) / "images/logo.png"
         logo_uri = logo_path.as_uri()
-        html_string = render_to_string('quotation_pdf_template.html', {
-            'estimation': estimation, 'items': items, 'amount_in_words': amount_in_words,
-            'logo_uri': logo_uri, 'expiry_date': expiry_date, 'same_state': same_state,
-            'cgst': cgst, 'sgst': sgst, 'igst': igst, 'cgst_rate': cgst_rate,
-            'sgst_rate': sgst_rate, 'igst_rate': igst_rate, 'terms': terms_content,
-        })
+
+        context = {
+            'estimation': estimation,
+            'items': items,
+            'sub_total': sub_total,
+            'discount': discount,
+            'taxable_value': taxable_value,
+            'cgst': cgst,
+            'sgst': sgst,
+            'igst': igst,
+            'cgst_rate': cgst_rate,
+            'sgst_rate': sgst_rate,
+            'igst_rate': igst_rate,
+            'total': total,
+            'amount_in_words': amount_in_words,
+            'logo_uri': logo_uri,
+            'expiry_date': expiry_date,
+            'same_state': same_state,
+            'terms': terms_content,
+        }
+
+        html_string = render_to_string('quotation_pdf_template.html', context)
         pdf = HTML(string=html_string, base_url=settings.STATIC_ROOT.as_uri()).write_pdf()
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename=Quotation_{estimation.quote_no}.pdf'
         return response
+
 
 def estimation_view(request):
     sort = request.GET.get('sort', 'quote_date')
