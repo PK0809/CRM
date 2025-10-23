@@ -67,6 +67,29 @@
             text-decoration: underline;
             margin-top: 15px;
         }
+
+        .totals-table {
+        border-collapse: collapse;
+        }
+        .totals-table td {
+        vertical-align: baseline;
+        line-height: 1.1;               /* tighter lines to remove the gap */
+        padding-top: 4px;                /* reduce extra top/bottom space */
+        padding-bottom: 4px;
+        }
+        .totals-table .totals-left {       /* the rowspan cell with Total In Words */
+        vertical-align: baseline;        /* or 'top' if baseline support varies */
+        }
+        .totals-table .totals-left .label { 
+        line-height: 1.1; 
+        margin: 0; 
+        display: inline;                 /* avoid block-level extra line-height */
+        }
+        .totals-table .tax-row td {
+        padding-top: 4px;
+        padding-bottom: 4px;
+        }
+
     </style>
 </head>
 <body>
@@ -172,7 +195,7 @@
     <!-- Totals -->
     <table class="totals-table">
         <tr>
-            <td width="80%" rowspan="4" style="text-align:left; vertical-align:middle;">
+            <td width="80%" rowspan="5" style="text-align:left; vertical-align:middle;">
                 <span style="font-weight:bold; font-size:12px;">Total In Words:</span> {{ amount_in_words }}
             </td>
             <td style="font-size:12px;">Sub Total</td>
@@ -203,7 +226,7 @@
         {% endif %}
         <tr>
             <td style="font-weight:bold; font-size:13px;">Total</td>
-            <td style="text-align:right; font-weight:bold; font-size:13px;">{{ estimation.total }}</td>
+            <td style="text-align:right; font-weight:bold; font-size:13px;">{{ total|floatformat:2 }}</td>
         </tr>
     </table>
 
@@ -220,12 +243,14 @@
 
 
             <!-- Spacer -->
-            <td style="width:1%;"></td>
+            <td style="width:4%;"></td>
 
             <!-- Terms & Conditions Box -->
             <td style="width:58%; vertical-align: top; padding:12px; border:1px solid #999; border-radius:5px;">
                 <strong>Terms & Conditions</strong><br>
-                <p style="font-size:10px; line-height:6px;">{{ estimation.terms_conditions|safe }}</p>
+                <div style="font-size:10px; line-height:16px; text-align:justify;">
+                    {{ estimation.terms_conditions|safe }}
+                </div>
             </td>
         </tr>
     </table>
