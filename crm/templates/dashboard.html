@@ -10,36 +10,123 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-    body { overflow-x: hidden; transition: background-color 0.3s, color 0.3s; }
-    #sidebar { transition: width 0.4s, background-color 0.3s; min-height: 100vh; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    #sidebar.collapsed { width: 70px; }
-    #sidebar.collapsed .menu-text, #sidebar.collapsed .submenu { display: none; }
-    .tooltip { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.85); color: white; font-size: 13px; padding: 5px 10px; border-radius: 6px; white-space: nowrap; margin-left: 10px; pointer-events: none; opacity: 0; transition: opacity 0.2s; }
-    #sidebar.collapsed .group:hover .tooltip { opacity: 1; }
-    #sidebarToggle { transition: transform 0.3s; }
-    #sidebarToggle.rotated { transform: rotate(180deg); }
-    #overlay.show { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 40; }
+    body {
+      overflow-x: hidden;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    /* Sidebar */
+    #sidebar {
+      transition: width 0.4s ease, background-color 0.3s ease;
+      min-height: 100vh;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    #sidebar.collapsed {
+      width: 70px;
+    }
+
+    #sidebar.collapsed .menu-text,
+    #sidebar.collapsed .submenu {
+      display: none;
+    }
+
+    /* Tooltip */
+    .tooltip {
+      position: absolute;
+      left: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      font-size: 13px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      margin-left: 10px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease-in-out;
+    }
+
+    #sidebar.collapsed .group:hover .tooltip {
+      opacity: 1;
+    }
+
+    /* Toggle icon rotation */
+    #sidebarToggle {
+      transition: transform 0.3s ease;
+    }
+
+    #sidebarToggle.rotated {
+      transform: rotate(180deg);
+    }
+
+    /* Overlay for mobile */
+    #overlay.show {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 40;
+    }
+
     #overlay { display: none; }
 
-    /* Dark mode */
-    .dark body { background-color: #0f172a; color: #f1f5f9; }
-    .dark #sidebar { background-color: #1e293b; color: #e2e8f0; box-shadow: none; }
-    .dark header { background-color: #1e293b; color: #e2e8f0; }
-    .dark .bg-white { background-color: #1e293b !important; color: #e2e8f0 !important; }
-    .dark .text-gray-600, .dark .text-gray-700, .dark .text-gray-800 { color: #cbd5e1 !important; }
-    .dark .bg-gray-100, .dark .bg-gray-50 { background-color: #0f172a !important; }
-    .dark footer { background-color: #1e293b !important; color: #e2e8f0 !important; }
+    /* Dark mode styles */
+    .dark body {
+      background-color: #0f172a;
+      color: #f1f5f9;
+    }
 
-    * { transition: background-color 0.3s, color 0.3s; }
+    .dark #sidebar {
+      background-color: #1e293b;
+      color: #e2e8f0;
+      box-shadow: none;
+    }
+
+    .dark header {
+      background-color: #1e293b;
+      color: #e2e8f0;
+    }
+
+    .dark .bg-white {
+      background-color: #1e293b !important;
+      color: #e2e8f0 !important;
+    }
+
+    .dark .text-gray-600,
+    .dark .text-gray-700,
+    .dark .text-gray-800 {
+      color: #cbd5e1 !important;
+    }
+
+    .dark .bg-gray-100,
+    .dark .bg-gray-50 {
+      background-color: #0f172a !important;
+    }
+
+    .dark footer {
+      background-color: #1e293b !important;
+      color: #e2e8f0 !important;
+    }
+
+    /* Smooth theme transitions */
+    * {
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
   </style>
 </head>
 
 <body class="bg-gray-100 min-h-screen">
+
   <!-- Header -->
   <header class="flex items-center justify-between bg-white shadow p-4 sticky top-0 z-40">
     <div class="flex items-center space-x-4">
       <button id="sidebarToggleBtn" class="text-2xl text-gray-600 hover:text-black transition-transform">
-        <svg id="sidebarToggle" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <svg id="sidebarToggle" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24"
+          stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
@@ -49,21 +136,32 @@
     </div>
 
     <div class="flex items-center gap-3 text-sm">
-      <button id="themeToggle" class="flex items-center gap-2 bg-gray-100 text-gray-800 px-3 py-2 rounded hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100">
-        <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m8.66-8.66l-.71.71M4.05 4.05l-.71.71M21 12h1M2 12H1m16.95 7.95l-.71-.71M4.05 19.95l-.71-.71M12 5a7 7 0 100 14 7 7 0 000-14z" />
+      <button id="themeToggle"
+        class="flex items-center gap-2 bg-gray-100 text-gray-800 px-3 py-2 rounded hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100">
+        <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24"
+          stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 3v1m0 16v1m8.66-8.66l-.71.71M4.05 4.05l-.71.71M21 12h1M2 12H1m16.95 7.95l-.71-.71M4.05 19.95l-.71-.71M12 5a7 7 0 100 14 7 7 0 000-14z" />
         </svg>
-        <svg id="moonIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z" />
+        <svg id="moonIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+          stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z" />
         </svg>
         <span id="themeLabel">Dark Mode</span>
       </button>
+
+      <span class="text-gray-700 font-medium hidden sm:block dark:text-gray-200">Welcome, {{ request.user.username }}</span>
+      <a href="{% url 'profile' %}" class="text-blue-600 hover:underline dark:text-blue-400">Profile</a>
+      <a href="{% url 'logout' %}" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600">Logout</a>
     </div>
   </header>
 
+  <!-- Overlay (mobile) -->
   <div id="overlay"></div>
 
   <div class="flex flex-col md:flex-row">
+
     <!-- Sidebar -->
     <aside id="sidebar" class="p-4 w-[250px] md:fixed md:h-screen md:top-[70px] border-r border-gray-200 dark:border-gray-700">
       <h2 class="text-xl font-bold mb-4 text-gray-800 menu-text dark:text-gray-100">Main Menu</h2>
@@ -84,19 +182,13 @@
       </div>
     </aside>
 
-    <!-- Main -->
+    <!-- Main Content -->
     <main class="flex-1 md:ml-[250px] p-6 bg-gray-50 dark:bg-gray-900">
       <div class="flex flex-col lg:flex-row justify-between items-center mb-6 gap-4">
         <div class="bg-gradient-to-r from-blue-100 via-purple-100 to-pink-100 dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 p-6 rounded-2xl shadow-md text-center w-full lg:max-w-3xl">
           <h2 class="text-2xl font-extrabold text-gray-800 dark:text-gray-100">Welcome, {{ request.user.username }}</h2>
           <p id="motivation" class="text-gray-600 dark:text-gray-300 mt-2"></p>
         </div>
-      </div>
-
-      <!-- Chart Section -->
-      <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
-        <h3 class="text-xl font-semibold mb-4 dark:text-gray-100">Monthly Sales Overview</h3>
-        <canvas id="salesChart" height="100"></canvas>
       </div>
 
       <!-- Footer -->
@@ -111,6 +203,7 @@
     const toggleBtn = document.getElementById('sidebarToggleBtn');
     const toggleIcon = document.getElementById('sidebarToggle');
     const overlay = document.getElementById('overlay');
+    const body = document.body;
     const themeToggle = document.getElementById('themeToggle');
     const themeLabel = document.getElementById('themeLabel');
     const sunIcon = document.getElementById('sunIcon');
@@ -130,45 +223,12 @@
       sidebar.classList.remove('active');
       overlay.classList.remove('show');
     });
-    function toggleMenu(id) { document.getElementById(id).classList.toggle('hidden'); }
 
-    // Chart.js Setup
-    const ctx = document.getElementById('salesChart').getContext('2d');
-    let chartInstance;
-    function createChart(theme) {
-      const isDark = theme === 'dark';
-      const textColor = isDark ? '#f1f5f9' : '#1e293b';
-      const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
-
-      if (chartInstance) chartInstance.destroy();
-      chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-          datasets: [{
-            label: 'Sales',
-            data: [1200, 1900, 3000, 500, 2000, 3000],
-            borderColor: isDark ? '#60a5fa' : '#2563eb',
-            backgroundColor: isDark ? 'rgba(96,165,250,0.3)' : 'rgba(37,99,235,0.3)',
-            borderWidth: 3,
-            tension: 0.4,
-            fill: true,
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { labels: { color: textColor } }
-          },
-          scales: {
-            x: { ticks: { color: textColor }, grid: { color: gridColor } },
-            y: { ticks: { color: textColor }, grid: { color: gridColor } }
-          }
-        }
-      });
+    function toggleMenu(id) {
+      document.getElementById(id).classList.toggle('hidden');
     }
 
-    // Theme logic
+    // Dark mode logic
     function setTheme(mode) {
       if (mode === 'dark') {
         document.documentElement.classList.add('dark');
@@ -183,26 +243,27 @@
         moonIcon.classList.remove('hidden');
         themeLabel.textContent = 'Dark Mode';
       }
-      createChart(mode);
     }
 
     themeToggle.addEventListener('click', () => {
-      const newTheme = localStorage.getItem('theme') === 'dark' ? 'light' : 'dark';
-      setTheme(newTheme);
+      const current = localStorage.getItem('theme') === 'dark' ? 'light' : 'dark';
+      setTheme(current);
     });
 
+    // Load stored theme
     const savedTheme = localStorage.getItem('theme') || 'light';
     setTheme(savedTheme);
 
-    // Motivation message
+    // Motivation
     document.addEventListener('DOMContentLoaded', function () {
-      const msgs = [
+      const messages = [
         "Stay focused and never give up 💪",
         "Great things take time. Keep going!",
         "Dream. Believe. Build. Achieve.",
         "Every small step counts 🚀"
       ];
-      document.getElementById("motivation").textContent = msgs[Math.floor(Math.random() * msgs.length)];
+      document.getElementById("motivation").textContent =
+        messages[Math.floor(Math.random() * messages.length)];
     });
   </script>
 </body>
