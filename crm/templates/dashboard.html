@@ -4,17 +4,28 @@
 <head>
     <meta charset="UTF-8" />
     <title>Dashboard</title>
+
+    <!-- Styles -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         .hidden {
             display: none;
         }
+        #motivation {
+            display: block;
+            font-style: italic;
+            color: #6b7280; /* gray-500 */
+            margin-top: 4px;
+            font-size: 0.9rem;
+        }
     </style>
+
     <script>
-        // Utility functions for toggling menus / sidebar / modals
+        // Utility functions for UI interactions
         function toggleMenu(id) { document.getElementById(id).classList.toggle('hidden'); }
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('hidden'); }
         function openLeadForm() { document.getElementById('leadFormModal').classList.remove('hidden'); }
@@ -23,14 +34,15 @@
         window.onclick = function (e) {
             const modal = document.getElementById('leadFormModal');
             if (e.target === modal) closeLeadForm();
-        }
+        };
 
         window.onload = function () {
             const dateInput = document.querySelector('input[name="date"]');
             if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
-        }
+        };
     </script>
 </head>
+
 <body class="bg-gray-100 min-h-screen">
 
     <!-- Header -->
@@ -41,20 +53,12 @@
                 <img src="{% static 'images/logo.png' %}" alt="Logo" class="w-[200px] ml-[-12px]" />
             </a>
         </div>
-        <div class="flex items-center space-x-2">
+        <div class="flex items-center space-x-3">
             <span class="text-gray-700 font-semibold">Welcome, {{ request.user.username }}</span>
             <a href="{% url 'profile' %}" class="text-blue-600 hover:underline">Profile</a>
             <a href="{% url 'logout' %}" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</a>
         </div>
     </header>
-
-    <!-- Custom Date Range -->
-    <div id="custom-date-range" class="mt-4 hidden">
-        <label class="block text-sm font-medium text-gray-600">From</label>
-        <input type="date" name="start_date" class="w-full border rounded px-2 py-1 mt-1" />
-        <label class="block text-sm font-medium text-gray-600 mt-2">To</label>
-        <input type="date" name="end_date" class="w-full border rounded px-2 py-1 mt-1" />
-    </div>
 
     <div class="flex">
 
@@ -111,225 +115,141 @@
             <!-- Title -->
             <div class="flex justify-center items-center mb-6">
                 <div class="bg-gradient-to-r from-blue-100 via-purple-100 to-pink-100 p-6 rounded-2xl shadow-md text-center w-full max-w-3xl">
-                    <div class="flex justify-center items-center bg-white px-6 py-6 rounded-xl shadow mb-6">
-                        <span class="text-gray-700 font-semibold">Welcome, {{ request.user.username }}</span>
-                        <p id="motivation" class="text-sm text-gray-500 italic mt-1"></p>
-                        <script>
-                            // Array of motivational messages
-                            const messages = [
-                                "Believe you can and you're halfway there!",
-                                "Stay focused, stay humble, stay strong!",
-                                "Small steps every day lead to big success!",
-                                "Your hard work will pay off — keep going!",
-                                "Dream big, work hard, make it happen!",
-                                "Every challenge is an opportunity to grow!",
-                                "You are doing great — keep pushing forward!",
-                                "Great things take time — trust your journey!",
-                                "Progress, not perfection — keep moving!",
-                                "Don’t stop when you’re tired; stop when you’re done!",
-                                "The best view comes after the hardest climb!",
-                                "Push yourself, because no one else will do it for you.",
-                                "Be stronger than your excuses!",
-                                "Start where you are. Use what you have. Do what you can.",
-                                "Success is not final, failure is not fatal — it’s the courage to continue that counts.",
-                                "Every day is a new chance to improve yourself.",
-                                "You didn’t come this far just to stop now!",
-                                "Work hard in silence, let success make the noise.",
-                                "Your only limit is your mind.",
-                                "Make today count — you won’t get it back.",
-                                "It always seems impossible until it’s done.",
-                                "One day or day one — you decide.",
-                                "Turn your dreams into plans, and your plans into action.",
-                                "Keep your eyes on the stars, and your feet on the ground.",
-                                "You don’t have to be great to start, but you have to start to be great.",
-                                "The harder you work for something, the greater you’ll feel when you achieve it.",
-                                "Discipline is the bridge between goals and accomplishment.",
-                                "Doubt kills more dreams than failure ever will.",
-                                "Strive for progress, not perfection.",
-                                "Winners are not those who never fail but those who never quit.",
-                                "You’re capable of more than you know!",
-                                "Even the darkest night will end and the sun will rise.",
-                                "One step at a time is still progress.",
-                                "If it doesn’t challenge you, it won’t change you.",
-                                "Keep going — your future self will thank you.",
-                                "Make yourself proud today!",
-                                "Success is the sum of small efforts repeated day in and day out.",
-                                "The secret of getting ahead is getting started.",
-                                "Consistency beats motivation every time.",
-                                "Start now. Get better later.",
-                                "Act as if what you do makes a difference — because it does.",
-                                "Don’t wait for opportunity. Create it.",
-                                "Be the reason someone smiles today.",
-                                "You’re writing your own story — make it a good one.",
-                                "Every morning you have two choices: continue to sleep with your dreams or wake up and chase them."
-                            ];
-                        
-                            // Pick a random message each time the page loads
-                            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-                            document.getElementById('motivation').textContent = randomMessage;
-                        </script>
-
-
-        <!-- Summary Stats -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white p-4 rounded shadow text-center">
-                <h2 class="text-lg font-semibold">Leads</h2>
-                <p class="text-2xl text-blue-600">{{ total_leads }}</p>
-            </div>
-            <div class="bg-white p-4 rounded shadow text-center">
-                <h2 class="text-lg font-semibold">Quotations</h2>
-                <p class="text-2xl text-yellow-600">{{ total_quotations }}</p>
-            </div>
-            <div class="bg-white p-4 rounded shadow text-center">
-                <h2 class="text-lg font-semibold">Invoices</h2>
-                <p class="text-2xl text-green-600">{{ total_invoices }}</p>
-            </div>
-            <div class="bg-white p-4 rounded shadow text-center">
-                <h2 class="text-lg font-semibold">Lead → Invoice %</h2>
-                <p class="text-2xl text-purple-600">{{ conversion_rate }}%</p>
-            </div>
-        </div>
-
-        <!-- Invoice Summary -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div class="bg-blue-100 text-blue-900 rounded-xl shadow px-6 py-4 text-center">
-                <h3 class="text-md font-semibold">Total Invoiced</h3>
-                <p class="text-xl font-bold">₹ {{ total_invoiced|floatformat:2 }}</p>
-            </div>
-            <div class="bg-green-100 text-green-900 rounded-xl shadow px-6 py-4 text-center">
-                <h3 class="text-md font-semibold">Paid</h3>
-                <p class="text-xl font-bold">₹ {{ paid|floatformat:2 }}</p>
-            </div>
-            <div class="bg-red-100 text-red-900 rounded-xl shadow px-6 py-4 text-center">
-                <h3 class="text-md font-semibold">Balance Due</h3>
-                <p class="text-xl font-bold">₹ {{ balance_due|floatformat:2 }}</p>
-            </div>
-        </div>
-
-        <!-- Dashboard Charts -->
-        <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
-            <!-- Quotation Status -->
-            <div class="bg-white p-4 rounded-2xl shadow flex flex-col justify-center items-center h-full min-h-[350px]">
-                <h3 class="text-lg font-semibold mb-4 text-gray-700">Quotation Status Overview</h3>
-                <div class="w-full max-w-[300px] aspect-square">
-                    <canvas id="quotationStatusChart"></canvas>
+                    <div class="bg-white px-6 py-6 rounded-xl shadow">
+                        <span class="text-gray-700 font-semibold text-lg">Welcome, {{ request.user.username }}</span>
+                        <p id="motivation"></p>
+                    </div>
                 </div>
             </div>
 
-            <!-- Lead Source -->
-            <div class="bg-white p-4 rounded-2xl shadow flex flex-col justify-center h-full min-h-[350px]">
-                <h3 class="text-lg font-semibold mb-4 text-gray-700">Lead Source</h3>
-                <canvas id="sourceChart" class="w-full h-[250px]"></canvas>
-            </div>
+            <!-- Motivational message logic -->
+            <script>
+                const messages = [
+                    "Believe you can and you're halfway there!",
+                    "Stay focused, stay humble, stay strong!",
+                    "Small steps every day lead to big success!",
+                    "Your hard work will pay off — keep going!",
+                    "Dream big, work hard, make it happen!",
+                    "Every challenge is an opportunity to grow!",
+                    "You are doing great — keep pushing forward!",
+                    "Great things take time — trust your journey!",
+                    "Progress, not perfection — keep moving!",
+                    "Don’t stop when you’re tired; stop when you’re done!",
+                    "The best view comes after the hardest climb!",
+                    "Push yourself, because no one else will do it for you.",
+                    "Be stronger than your excuses!",
+                    "Start where you are. Use what you have. Do what you can.",
+                    "Success is not final, failure is not fatal — it’s the courage to continue that counts.",
+                    "Every day is a new chance to improve yourself.",
+                    "You didn’t come this far just to stop now!",
+                    "Work hard in silence, let success make the noise.",
+                    "Your only limit is your mind.",
+                    "Make today count — you won’t get it back.",
+                    "It always seems impossible until it’s done.",
+                    "One day or day one — you decide.",
+                    "Turn your dreams into plans, and your plans into action.",
+                    "Keep your eyes on the stars, and your feet on the ground.",
+                    "You don’t have to be great to start, but you have to start to be great.",
+                    "The harder you work for something, the greater you’ll feel when you achieve it.",
+                    "Discipline is the bridge between goals and accomplishment.",
+                    "Doubt kills more dreams than failure ever will.",
+                    "Strive for progress, not perfection.",
+                    "Winners are not those who never fail but those who never quit.",
+                    "You’re capable of more than you know!",
+                    "Even the darkest night will end and the sun will rise.",
+                    "One step at a time is still progress.",
+                    "If it doesn’t challenge you, it won’t change you.",
+                    "Keep going — your future self will thank you.",
+                    "Make yourself proud today!",
+                    "Success is the sum of small efforts repeated day in and day out.",
+                    "The secret of getting ahead is getting started.",
+                    "Consistency beats motivation every time.",
+                    "Start now. Get better later.",
+                    "Act as if what you do makes a difference — because it does.",
+                    "Don’t wait for opportunity. Create it.",
+                    "Be the reason someone smiles today.",
+                    "You’re writing your own story — make it a good one.",
+                    "Every morning you have two choices: continue to sleep with your dreams or wake up and chase them."
+                ];
 
-            <!-- Top Clients -->
-            <div class="bg-white p-4 rounded-2xl shadow flex flex-col justify-center h-full min-h-[350px]">
-                <h3 class="text-lg font-semibold mb-4 text-gray-700">Top 4 Clients</h3>
-                <canvas id="assigneeChart" class="w-full h-[250px]"></canvas>
-            </div>
+                const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+                document.getElementById("motivation").textContent = randomMessage;
+            </script>
 
-            <!-- Quotation & Invoice Status -->
-            <div class="bg-white p-4 rounded-2xl shadow flex flex-col justify-center items-center h-full min-h-[350px]">
-                <h3 class="text-lg font-semibold mb-4 text-gray-700">Quotation & Invoice Status</h3>
-                <div class="w-full max-w-[300px] aspect-square">
-                    <canvas id="statusChart"></canvas>
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h2 class="text-lg font-semibold">Leads</h2>
+                    <p class="text-2xl text-blue-600">{{ total_leads }}</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h2 class="text-lg font-semibold">Quotations</h2>
+                    <p class="text-2xl text-yellow-600">{{ total_quotations }}</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h2 class="text-lg font-semibold">Invoices</h2>
+                    <p class="text-2xl text-green-600">{{ total_invoices }}</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h2 class="text-lg font-semibold">Lead → Invoice %</h2>
+                    <p class="text-2xl text-purple-600">{{ conversion_rate }}%</p>
                 </div>
             </div>
-        </div>
 
-        <!-- Footer -->
-        <footer class="bg-white text-right text-gray-600 p-4 shadow mt-6 rounded-lg">
-            Designed & Developed By <span class="font-semibold">Nagaraj Nada</span>
-        </footer>
+            <!-- Invoice Summary -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div class="bg-blue-100 text-blue-900 rounded-xl shadow px-6 py-4 text-center">
+                    <h3 class="text-md font-semibold">Total Invoiced</h3>
+                    <p class="text-xl font-bold">₹ {{ total_invoiced|floatformat:2 }}</p>
+                </div>
+                <div class="bg-green-100 text-green-900 rounded-xl shadow px-6 py-4 text-center">
+                    <h3 class="text-md font-semibold">Paid</h3>
+                    <p class="text-xl font-bold">₹ {{ paid|floatformat:2 }}</p>
+                </div>
+                <div class="bg-red-100 text-red-900 rounded-xl shadow px-6 py-4 text-center">
+                    <h3 class="text-md font-semibold">Balance Due</h3>
+                    <p class="text-xl font-bold">₹ {{ balance_due|floatformat:2 }}</p>
+                </div>
+            </div>
 
-        <!-- ChartJS -->
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <script>
-    // Quotation & Invoice Status Overview
-    new Chart(document.getElementById('statusChart').getContext('2d'), {
-        type: 'doughnut',
-        data: {
-            labels: [
-                {% for q in quotation_status %} "{{ q.status }}",{% endfor %}
-                {% for i in invoice_status %} "{{ i.status }}",{% endfor %}
-            ],
-            datasets: [{
-                label: 'Counts',
-                data: [
-                    {% for q in quotation_status %} {{ q.count }},{% endfor %}
-                    {% for i in invoice_status %} {{ i.count }},{% endfor %}
-                ],
-                backgroundColor: [
-                    '#4CAF50', '#2196F3', '#FFC107', '#F44336',
-                    '#9C27B0', '#00BCD4', '#FF9800'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'bottom' },
-                title: { display: false }
-            }
-        }
-    });
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                <div class="bg-white p-4 rounded-2xl shadow flex flex-col justify-center items-center h-full min-h-[350px]">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Quotation Status Overview</h3>
+                    <div class="w-full max-w-[300px] aspect-square">
+                        <canvas id="quotationStatusChart"></canvas>
+                    </div>
+                </div>
 
-    // Lead Source
-    new Chart(document.getElementById('sourceChart'), {
-        type: 'bar',
-        data: {
-            labels: ['Call', 'Email', 'Portal', 'Social'],
-            datasets: [{
-                label: 'Cases',
-                data: [24, 10, 6, 1],
-                backgroundColor: '#F59E0B'
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            plugins: { legend: { display: false } },
-            scales: { x: { beginAtZero: true } }
-        }
-    });
+                <div class="bg-white p-4 rounded-2xl shadow flex flex-col justify-center h-full min-h-[350px]">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Lead Source</h3>
+                    <canvas id="sourceChart" class="w-full h-[250px]"></canvas>
+                </div>
 
-    // Top Clients
-    new Chart(document.getElementById('assigneeChart'), {
-        type: 'bar',
-        data: {
-            labels: ['William', 'Sarah', 'Peter', 'Jason'],
-            datasets: [{
-                label: 'Cases',
-                data: [5, 16, 2, 3],
-                backgroundColor: '#EC4899'
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            plugins: { legend: { display: false } },
-            scales: { x: { beginAtZero: true } }
-        }
-    });
+                <div class="bg-white p-4 rounded-2xl shadow flex flex-col justify-center h-full min-h-[350px]">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Top 4 Clients</h3>
+                    <canvas id="assigneeChart" class="w-full h-[250px]"></canvas>
+                </div>
 
-    // Quotation Status Example (dummy - replace with backend data if needed)
-    new Chart(document.getElementById('quotationStatusChart'), {
-        type: 'doughnut',
-        data: {
-            labels: ['Pending', 'Approved', 'Rejected'],
-            datasets: [{
-                label: 'Quotations',
-                data: [12, 8, 3],
-                backgroundColor: ['#3B82F6', '#10B981', '#EF4444']
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { position: 'bottom' } }
-        }
-    });
-        </script>
+                <div class="bg-white p-4 rounded-2xl shadow flex flex-col justify-center items-center h-full min-h-[350px]">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Quotation & Invoice Status</h3>
+                    <div class="w-full max-w-[300px] aspect-square">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+            </div>
 
-
+            <!-- Footer -->
+            <footer class="bg-white text-right text-gray-600 p-4 shadow mt-6 rounded-lg">
+                Designed & Developed By <span class="font-semibold">Nagaraj Nada</span>
+            </footer>
         </main>
     </div>
+
+    <!-- Charts JS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Example Chart.js initialization (keep your existing data logic)
+    </script>
 </body>
 </html>
