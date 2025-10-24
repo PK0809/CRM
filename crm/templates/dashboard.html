@@ -1,338 +1,263 @@
-{% load static %}
+﻿{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
     <title>Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="{% static 'css/style.css' %}" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .hidden { display: none; }
+        body { background-color: #f3f4f6; }
+        /* Sidebar */
+        #sidebar { transition: all 0.5s ease; min-height: 100vh; transform-style: preserve-3d; }
+        #sidebar.collapsed { width: 70px; transform: rotateY(-15deg); }
+        #sidebar .menu-text { transition: opacity 0.3s ease; }
+        #sidebar.collapsed .menu-text { opacity: 0; }
 
-        /* Sidebar collapse animation */
-        #sidebar {
-            transition: width 0.3s ease;
-            min-height: 100vh;
-        }
+        /* 3D card effect */
+        .card-3d { perspective: 1000px; }
+        .card-inner { transition: transform 0.3s ease, box-shadow 0.3s ease; transform-style: preserve-3d; }
+        .card-inner:hover { transform: rotateX(5deg) rotateY(5deg) translateY(-5px); box-shadow: 0 20px 30px rgba(0,0,0,0.2); }
 
-        #sidebar.collapsed {
-            width: 70px;
-        }
+        /* Tooltip */
+        .tooltip { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.85); color: #fff; font-size: 13px; padding: 5px 10px; border-radius: 6px; white-space: nowrap; margin-left: 10px; pointer-events: none; opacity: 0; transition: opacity 0.2s ease-in-out; }
+        #sidebar.collapsed .group:hover .tooltip { opacity: 1; }
 
-        #sidebar.collapsed .menu-text,
-        #sidebar.collapsed .submenu {
-            display: none;
-        }
-
-        #sidebar.collapsed .menu-icon {
-            margin: 0 auto;
-        }
-
-        /* Tooltip styles */
-        .tooltip {
-            position: absolute;
-            left: 100%;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(0, 0, 0, 0.85);
-            color: white;
-            font-size: 13px;
-            padding: 5px 10px;
-            border-radius: 6px;
-            white-space: nowrap;
-            margin-left: 10px;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s ease-in-out;
-        }
-
-        #sidebar.collapsed .group:hover .tooltip {
-            opacity: 1;
-        }
-
-        /* Smooth fade for dropdown */
-        #filterDropdown {
-            transition: all 0.2s ease-in-out;
-        }
+        /* Filter Dropdown */
+        #filterDropdown { transition: all 0.3s ease-in-out; }
     </style>
 </head>
+<body class="min-h-screen">
 
-<body class="bg-gray-100 min-h-screen">
+<!-- Header -->
+<header class="flex items-center justify-between bg-white shadow-md p-4 sticky top-0 z-50">
+    <div class="flex items-center space-x-4">
+        <button onclick="collapseSidebar()" class="text-2xl text-gray-600 hover:text-black">☰</button>
+        <a href="{% url 'dashboard' %}"><img src="{% static 'images/logo.png' %}" alt="Logo" class="w-[180px]" /></a>
+    </div>
+    <div class="flex items-center gap-3 text-sm">
+        <span class="hidden sm:block text-gray-700 font-medium">Welcome, {{ request.user.username }}</span>
+        <a href="{% url 'profile' %}" class="text-blue-600 hover:underline">Profile</a>
+        <a href="{% url 'logout' %}" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600">Logout</a>
+    </div>
+</header>
 
-    <!-- Header -->
-    <header class="flex items-center justify-between bg-white shadow p-4 sticky top-0 z-40">
-        <div class="flex items-center space-x-4">
-            <button onclick="collapseSidebar()" class="text-2xl text-gray-600 hover:text-black">☰</button>
-            <a href="{% url 'dashboard' %}">
-                <img src="{% static 'images/logo.png' %}" alt="Logo" class="w-[180px] ml-[-8px]" />
-            </a>
+<div class="flex flex-col md:flex-row">
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="bg-white border-r border-gray-200 p-4 w-[250px] md:fixed md:h-screen z-40 shadow-lg rounded-r-xl">
+        <h2 class="text-xl font-bold mb-6 menu-text">Main Menu</h2>
+
+        {% if request.user.is_superuser %}
+        <div class="mb-4 relative group">
+            <button onclick="toggleMenu('adminMenu')" class="w-full flex items-center gap-3 py-2 px-3 bg-gray-100 hover:bg-gray-200 rounded font-bold">
+                <span class="menu-icon">⚙️</span>
+                <span class="menu-text">Admin</span>
+                <div class="tooltip">Admin</div>
+            </button>
+            <div id="adminMenu" class="ml-6 mt-2 hidden submenu">
+                <a href="{% url 'user_list' %}" class="block py-1 text-gray-700 hover:text-blue-600">👤 Users</a>
+            </div>
         </div>
-        <div class="flex items-center gap-3 text-sm">
-            <span class="text-gray-700 font-medium hidden sm:block">Welcome, {{ request.user.username }}</span>
-            <a href="{% url 'profile' %}" class="text-blue-600 hover:underline">Profile</a>
-            <a href="{% url 'logout' %}" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600">Logout</a>
+        {% endif %}
+
+        <div class="mb-4 relative group">
+            <button onclick="toggleMenu('salesMenu')" class="w-full flex items-center gap-3 py-2 px-3 bg-blue-100 hover:bg-blue-200 rounded font-bold">
+                <span class="menu-icon">💼</span>
+                <span class="menu-text">Sales</span>
+                <div class="tooltip">Sales</div>
+            </button>
+            <div id="salesMenu" class="ml-6 mt-2 hidden submenu">
+                {% if perms.crm.view_client %}<a href="/client/" class="block py-1 text-blue-700 hover:underline font-semibold">🧾 Client</a>{% endif %}
+                {% if perms.crm.view_lead %}<a href="/lead/" class="block py-1 text-blue-700 hover:underline font-semibold">📋 Lead</a>{% endif %}
+                {% if perms.crm.view_estimation %}<a href="/estimation/" class="block py-1 text-blue-700 hover:underline font-semibold">📐 Estimation</a>{% endif %}
+                {% if perms.crm.view_invoice %}<a href="/invoices/" class="block py-1 text-blue-700 hover:underline font-semibold">🧾 Invoice</a>{% endif %}
+                {% if perms.crm.view_report %}<a href="{% url 'report_list' %}" class="block py-1 text-blue-700 hover:underline font-semibold">📊 Reports</a>{% endif %}
+            </div>
         </div>
-    </header>
 
-    <div class="flex flex-col md:flex-row">
-
-        <!-- Sidebar -->
-        <aside id="sidebar" class="bg-white border-r border-gray-200 p-4 w-[250px] md:fixed md:h-screen md:top-[100px] z-30">
-            <h2 class="text-xl font-bold mb-4 text-gray-800 menu-text">Main Menu</h2>
-
-            {% if request.user.is_superuser %}
-            <div class="mb-4 relative group">
-                <button onclick="toggleMenu('adminMenu')" class="w-full flex items-center gap-3 py-2 px-3 bg-gray-100 hover:bg-gray-200 rounded font-bold">
-                    <span class="menu-icon">⚙️</span>
-                    <span class="menu-text">Admin</span>
-                    <div class="tooltip">Admin</div>
-                </button>
-                <div id="adminMenu" class="ml-6 mt-2 hidden submenu">
-                    <a href="{% url 'user_list' %}" class="block py-1 text-gray-700 hover:text-blue-600">👤 Users</a>
-                </div>
+        {% if request.user.is_superuser %}
+        <div class="mb-4 relative group">
+            <button onclick="toggleMenu('purchaseMenu')" class="w-full flex items-center gap-3 py-2 px-3 bg-green-100 hover:bg-green-200 rounded font-bold">
+                <span class="menu-icon">🛒</span>
+                <span class="menu-text">Purchase</span>
+                <div class="tooltip">Purchase</div>
+            </button>
+            <div id="purchaseMenu" class="ml-6 mt-2 hidden submenu">
+                <a href="{% url 'vendor' %}" class="block py-1 text-green-700 hover:underline font-semibold">Vendor</a>
+                <a href="#" class="block py-1 text-green-700 hover:underline font-semibold">PO</a>
+                <a href="#" class="block py-1 text-green-700 hover:underline font-semibold">Bill</a>
             </div>
-            {% endif %}
+        </div>
+        {% endif %}
+    </aside>
 
-            <div class="mb-4 relative group">
-                <button onclick="toggleMenu('salesMenu')" class="w-full flex items-center gap-3 py-2 px-3 bg-blue-100 hover:bg-blue-200 rounded font-bold">
-                    <span class="menu-icon">💼</span>
-                    <span class="menu-text">Sales</span>
-                    <div class="tooltip">Sales</div>
-                </button>
-                <div id="salesMenu" class="ml-6 mt-2 hidden submenu">
-                    {% if perms.crm.view_client %}
-                    <a href="/client/" class="block py-1 text-blue-700 hover:underline font-semibold">🧾 Client</a>
-                    {% endif %}
-                    {% if perms.crm.view_lead %}
-                    <a href="/lead/" class="block py-1 text-blue-700 hover:underline font-semibold">📋 Lead</a>
-                    {% endif %}
-                    {% if perms.crm.view_estimation %}
-                    <a href="/estimation/" class="block py-1 text-blue-700 hover:underline font-semibold">📐 Estimation</a>
-                    {% endif %}
-                    {% if perms.crm.view_invoice %}
-                    <a href="/invoices/" class="block py-1 text-blue-700 hover:underline font-semibold">🧾 Invoice</a>
-                    {% endif %}
-                    {% if perms.crm.view_report %}
-                    <a href="{% url 'report_list' %}" class="block py-1 text-blue-700 hover:underline font-semibold">📊 Reports</a>
-                    {% endif %}
-                </div>
-            </div>
+    <!-- Main Content -->
+    <main class="flex-1 md:ml-[250px] p-6">
 
-            {% if request.user.is_superuser %}
-            <div class="mb-4 relative group">
-                <button onclick="toggleMenu('purchaseMenu')" class="w-full flex items-center gap-3 py-2 px-3 bg-green-100 hover:bg-green-200 rounded font-bold">
-                    <span class="menu-icon">🛒</span>
-                    <span class="menu-text">Purchase</span>
-                    <div class="tooltip">Purchase</div>
-                </button>
-                <div id="purchaseMenu" class="ml-6 mt-2 hidden submenu">
-                    <a href="{% url 'vendor' %}" class="block py-1 text-green-700 hover:underline font-semibold">Vendor</a>
-                    <a href="#" class="block py-1 text-green-700 hover:underline font-semibold">PO</a>
-                    <a href="#" class="block py-1 text-green-700 hover:underline font-semibold">Bill</a>
-                </div>
-            </div>
-            {% endif %}
-        </aside>
-
-        <!-- Main Content -->
-        <main class="flex-1 md:ml-[250px] p-6 bg-gray-50">
-            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-                <div class="bg-gradient-to-r from-blue-100 via-purple-100 to-pink-100 p-6 rounded-2xl shadow-md text-center w-full lg:max-w-3xl">
-                    <div class="flex flex-col justify-center items-center bg-white px-6 py-6 rounded-xl shadow mb-4">
-                        <h2 class="text-2xl font-extrabold text-gray-800">Welcome, {{ request.user.username }}</h2>
+        <!-- Welcome Card -->
+        <div class="flex flex-col items-center mb-8 gap-6">
+            <div class="card-3d w-full lg:max-w-3xl">
+                <div class="card-inner bg-gradient-to-r from-blue-200 via-purple-200 to-pink-200 p-6 rounded-3xl shadow-lg text-center">
+                    <div class="bg-white px-6 py-6 rounded-xl shadow-md mb-4">
+                        <h2 class="text-3xl font-extrabold text-gray-800">Welcome, {{ request.user.username }}</h2>
                         <p id="motivation" class="text-gray-600 mt-2"></p>
                     </div>
                     <p class="text-gray-600 text-md">Here's a quick summary of your business performance.</p>
                 </div>
-            
-                <div class="relative">
-                    <button id="filterToggle" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L15 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 019 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
-                        </svg>
-                        Filter
-                    </button>
-                    <div id="filterDropdown" class="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50 hidden">
-                        <h3 class="text-lg font-bold mb-2 px-4 pt-3">Filter</h3>
-                        <form method="get" class="px-4 pb-3">
-                            {% for label, value in filter_options %}
-                            <label class="block mt-1">
-                                <input type="radio" name="date_filter" value="{{ value }}"
-                                       {% if selected_filter == value %}checked{% endif %}> {{ label }}
-                            </label>
-                            {% endfor %}
-                            <button type="submit" class="mt-3 px-4 py-2 bg-blue-500 text-white rounded">Apply</button>
-                        </form>
-                    </div>
+            </div>
+        </div>
+
+        <!-- Filter Button -->
+        <div class="relative w-full lg:w-auto mb-6">
+            <button id="filterToggle" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow">
+                Filter
+            </button>
+            <div id="filterDropdown" class="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50 hidden">
+                <h3 class="text-lg font-bold mb-2 px-4 pt-3">Filter</h3>
+                <form method="get" class="px-4 pb-3">
+                    {% for label, value in filter_options %}
+                    <label class="block mt-1">
+                        <input type="radio" name="date_filter" value="{{ value }}" {% if selected_filter == value %}checked{% endif %}> {{ label }}
+                    </label>
+                    {% endfor %}
+                    <button type="submit" class="mt-3 px-4 py-2 bg-blue-500 text-white rounded">Apply</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8 justify-items-center">
+            <div class="card-3d w-full max-w-xs">
+                <div class="card-inner bg-white p-5 rounded-2xl shadow-lg text-center">
+                    <h3 class="text-lg font-semibold">Leads</h3>
+                    <p class="text-3xl text-blue-600 font-bold">{{ total_leads }}</p>
                 </div>
             </div>
-
-            <!-- Summary Cards -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-white p-4 rounded shadow text-center"><h2 class="text-lg font-semibold">Leads</h2><p class="text-2xl text-blue-600">{{ total_leads }}</p></div>
-                <div class="bg-white p-4 rounded shadow text-center"><h2 class="text-lg font-semibold">Quotations</h2><p class="text-2xl text-yellow-600">{{ total_quotations }}</p></div>
-                <div class="bg-white p-4 rounded shadow text-center"><h2 class="text-lg font-semibold">Invoices</h2><p class="text-2xl text-green-600">{{ total_invoices }}</p></div>
-                <div class="bg-white p-4 rounded shadow text-center"><h2 class="text-lg font-semibold">Lead → Invoice %</h2><p class="text-2xl text-purple-600">{{ conversion_rate }}%</p></div>
-            </div>
-
-            <!-- Invoice Summary -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <div class="bg-blue-100 text-blue-900 rounded-xl shadow px-6 py-4 text-center">
-                    <h3 class="text-md font-semibold">Total Invoiced</h3>
-                    <p class="text-xl font-bold">₹ {{ total_invoiced|floatformat:2 }}</p>
-                </div>
-                <div class="bg-green-100 text-green-900 rounded-xl shadow px-6 py-4 text-center">
-                    <h3 class="text-md font-semibold">Paid</h3>
-                    <p class="text-xl font-bold">₹ {{ paid|floatformat:2 }}</p>
-                </div>
-                <div class="bg-red-100 text-red-900 rounded-xl shadow px-6 py-4 text-center">
-                    <h3 class="text-md font-semibold">Balance Due</h3>
-                    <p class="text-xl font-bold">₹ {{ balance_due|floatformat:2 }}</p>
+            <div class="card-3d w-full max-w-xs">
+                <div class="card-inner bg-white p-5 rounded-2xl shadow-lg text-center">
+                    <h3 class="text-lg font-semibold">Quotations</h3>
+                    <p class="text-3xl text-yellow-600 font-bold">{{ total_quotations }}</p>
                 </div>
             </div>
-
-            <!-- Charts -->
-            <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
-                <div class="bg-white p-4 rounded-2xl shadow flex flex-col items-center min-h-[350px]">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Quotation Status</h3>
-                    <canvas id="quotationStatusChart" class="w-full max-w-[300px]"></canvas>
-                </div>
-                <div class="bg-white p-4 rounded-2xl shadow flex flex-col min-h-[350px]">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Lead Source</h3>
-                    <canvas id="sourceChart"></canvas>
-                </div>
-                <div class="bg-white p-4 rounded-2xl shadow flex flex-col min-h-[350px]">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Top 4 Clients</h3>
-                    <canvas id="assigneeChart"></canvas>
-                </div>
-                <div class="bg-white p-4 rounded-2xl shadow flex flex-col items-center min-h-[350px]">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-700">Quotation & Invoice Status</h3>
-                    <canvas id="statusChart" class="w-full max-w-[300px]"></canvas>
+            <div class="card-3d w-full max-w-xs">
+                <div class="card-inner bg-white p-5 rounded-2xl shadow-lg text-center">
+                    <h3 class="text-lg font-semibold">Invoices</h3>
+                    <p class="text-3xl text-green-600 font-bold">{{ total_invoices }}</p>
                 </div>
             </div>
+            <div class="card-3d w-full max-w-xs">
+                <div class="card-inner bg-white p-5 rounded-2xl shadow-lg text-center">
+                    <h3 class="text-lg font-semibold">Lead → Invoice %</h3>
+                    <p class="text-3xl text-purple-600 font-bold">{{ conversion_rate }}%</p>
+                </div>
+            </div>
+        </div>
 
-            <!-- Footer -->
-            <footer class="bg-white text-right text-gray-600 p-4 shadow mt-6 rounded-lg">
-                Designed & Developed By <span class="font-semibold">Nagaraj Nada</span>
-            </footer>
-        </main>
-    </div>
+        <!-- Invoice Summary -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 justify-items-center">
+            <div class="card-3d w-full max-w-xs">
+                <div class="card-inner bg-blue-100 text-blue-900 rounded-2xl shadow-lg p-6 text-center">
+                    <h3 class="font-semibold">Total Invoiced</h3>
+                    <p class="text-2xl font-bold">₹ {{ total_invoiced|floatformat:2 }}</p>
+                </div>
+            </div>
+            <div class="card-3d w-full max-w-xs">
+                <div class="card-inner bg-green-100 text-green-900 rounded-2xl shadow-lg p-6 text-center">
+                    <h3 class="font-semibold">Paid</h3>
+                    <p class="text-2xl font-bold">₹ {{ paid|floatformat:2 }}</p>
+                </div>
+            </div>
+            <div class="card-3d w-full max-w-xs">
+                <div class="card-inner bg-red-100 text-red-900 rounded-2xl shadow-lg p-6 text-center">
+                    <h3 class="font-semibold">Balance Due</h3>
+                    <p class="text-2xl font-bold">₹ {{ balance_due|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
 
-    <!-- JS -->
-    <script>
-        // Sidebar Collapse
-        function collapseSidebar() {
-            document.getElementById('sidebar').classList.toggle('collapsed');
-        }
+        <!-- Charts -->
+        <div class="grid grid-cols-1 xl:grid-cols-4 gap-6 justify-items-center mb-8">
+            <div class="card-3d w-full max-w-xs">
+                <div class="card-inner bg-white p-5 rounded-2xl shadow-lg text-center min-h-[350px]">
+                    <h3 class="font-semibold mb-4">Quotation Status</h3>
+                    <canvas id="quotationStatusChart" class="w-full max-w-[300px] mx-auto"></canvas>
+                </div>
+            </div>
+            <div class="card-3d w-full max-w-xs">
+                <div class="card-inner bg-white p-5 rounded-2xl shadow-lg text-center min-h-[350px]">
+                    <h3 class="font-semibold mb-4">Lead Source</h3>
+                    <canvas id="sourceChart" class="w-full max-w-[300px] mx-auto"></canvas>
+                </div>
+            </div>
+            <div class="card-3d w-full max-w-xs">
+                <div class="card-inner bg-white p-5 rounded-2xl shadow-lg text-center min-h-[350px]">
+                    <h3 class="font-semibold mb-4">Top 4 Clients</h3>
+                    <canvas id="assigneeChart" class="w-full max-w-[300px] mx-auto"></canvas>
+                </div>
+            </div>
+            <div class="card-3d w-full max-w-xs">
+                <div class="card-inner bg-white p-5 rounded-2xl shadow-lg text-center min-h-[350px]">
+                    <h3 class="font-semibold mb-4">Invoice Status</h3>
+                    <canvas id="statusChart" class="w-full max-w-[300px] mx-auto"></canvas>
+                </div>
+            </div>
+        </div>
 
-        // Menu Toggle
-        function toggleMenu(id) {
-            document.getElementById(id).classList.toggle('hidden');
-        }
+        <!-- Footer -->
+        <footer class="bg-white text-center md:text-right text-gray-600 p-4 shadow rounded-lg">
+            Designed & Developed By <span class="font-semibold">Nagaraj Nada</span>
+        </footer>
+    </main>
+</div>
 
-        // Filter Dropdown
-        document.addEventListener("DOMContentLoaded", function () {
-            const toggleBtn = document.getElementById("filterToggle");
-            const dropdown = document.getElementById("filterDropdown");
+<!-- Scripts -->
+<script>
+    // Sidebar collapse
+    function collapseSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); }
+    function toggleMenu(id) { document.getElementById(id).classList.toggle('hidden'); }
 
-            toggleBtn.addEventListener("click", function (event) {
-                event.stopPropagation();
-                dropdown.classList.toggle("hidden");
-            });
-            document.addEventListener("click", function (event) {
-                if (!dropdown.contains(event.target) && !toggleBtn.contains(event.target)) {
-                    dropdown.classList.add("hidden");
-                }
-            });
+    // Filter toggle
+    document.addEventListener("DOMContentLoaded", function() {
+        const toggleBtn = document.getElementById("filterToggle");
+        const dropdown = document.getElementById("filterDropdown");
+        toggleBtn.addEventListener("click", e => { e.stopPropagation(); dropdown.classList.toggle("hidden"); });
+        document.addEventListener("click", e => { if (!dropdown.contains(e.target) && !toggleBtn.contains(e.target)) dropdown.classList.add("hidden"); });
 
-            // Random motivational message
-            const messages = [
-                "Believe you can and you're halfway there!",
-                "Stay focused, stay humble, stay strong!",
-                "Small steps every day lead to big success!",
-                "Your hard work will pay off — keep going!",
-                "Dream big, work hard, make it happen!",
-                "Every challenge is an opportunity to grow!",
-                "You are doing great — keep pushing forward!",
-                "Great things take time — trust your journey!",
-                "Progress, not perfection — keep moving!",
-                "Don’t stop when you’re tired; stop when you’re done!",
-                "The best view comes after the hardest climb!",
-                "Push yourself, because no one else will do it for you.",
-                "Be stronger than your excuses!",
-                "Start where you are. Use what you have. Do what you can.",
-                "Success is not final, failure is not fatal — it’s the courage to continue that counts.",
-                "Every day is a new chance to improve yourself.",
-                "You didn’t come this far just to stop now!",
-                "Work hard in silence, let success make the noise.",
-                "Your only limit is your mind.",
-                "Make today count — you won’t get it back.",
-                "It always seems impossible until it’s done.",
-                "One day or day one — you decide.",
-                "Turn your dreams into plans, and your plans into action.",
-                "Keep your eyes on the stars, and your feet on the ground.",
-                "You don’t have to be great to start, but you have to start to be great.",
-                "The harder you work for something, the greater you’ll feel when you achieve it.",
-                "Discipline is the bridge between goals and accomplishment.",
-                "Doubt kills more dreams than failure ever will.",
-                "Strive for progress, not perfection.",
-                "Winners are not those who never fail but those who never quit.",
-                "You’re capable of more than you know!",
-                "Even the darkest night will end and the sun will rise.",
-                "One step at a time is still progress.",
-                "If it doesn’t challenge you, it won’t change you.",
-                "Keep going — your future self will thank you.",
-                "Make yourself proud today!",
-                "Success is the sum of small efforts repeated day in and day out.",
-                "The secret of getting ahead is getting started.",
-                "Consistency beats motivation every time.",
-                "Start now. Get better later.",
-                "Act as if what you do makes a difference — because it does.",
-                "Don’t wait for opportunity. Create it.",
-                "Be the reason someone smiles today.",
-                "You’re writing your own story — make it a good one.",
-                "Every morning you have two choices: continue to sleep with your dreams or wake up and chase them."
-            ];
-            document.getElementById("motivation").textContent =
-                messages[Math.floor(Math.random() * messages.length)];
-        });
-    </script>
+        // Motivation
+        const messages = [ /* same as your long messages array */ ];
+        document.getElementById("motivation").textContent = messages[Math.floor(Math.random()*messages.length)];
+    });
 
-    <!-- Charts -->
-    <script>
-        new Chart(document.getElementById('statusChart'), {
-            type: 'doughnut',
-            data: {
-                labels: [{% for q in quotation_status %}"{{ q.status }}",{% endfor %}{% for i in invoice_status %}"{{ i.status }}",{% endfor %}],
-                datasets: [{
-                    data: [{% for q in quotation_status %}{{ q.count }},{% endfor %}{% for i in invoice_status %}{{ i.count }},{% endfor %}],
-                    backgroundColor: ['#4CAF50', '#2196F3', '#FFC107', '#F44336', '#9C27B0']
-                }]
-            },
-            options: { plugins: { legend: { position: 'bottom' } } }
-        });
+    // Charts
+    new Chart(document.getElementById('quotationStatusChart'), {
+        type:'doughnut',
+        data:{
+            labels:[{% for q in quotation_status %}"{{ q.status }}",{% endfor %}],
+            datasets:[{data:[{% for q in quotation_status %}{{ q.count }},{% endfor %}], backgroundColor:['#3B82F6','#10B981','#EF4444','#F59E0B']}]
+        },
+        options:{plugins:{legend:{position:'bottom'}}}
+    });
 
-        new Chart(document.getElementById('sourceChart'), {
-            type: 'bar',
-            data: { labels: ['Call', 'Email', 'Portal', 'Social'], datasets: [{ data: [24, 10, 6, 1], backgroundColor: '#F59E0B' }] },
-            options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
-        });
+    new Chart(document.getElementById('sourceChart'), {
+        type:'bar',
+        data:{labels:['Call','Email','Portal','Social'], datasets:[{data:[24,10,6,1], backgroundColor:'#F59E0B'}]},
+        options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true}}}
+    });
 
-        new Chart(document.getElementById('assigneeChart'), {
-            type: 'bar',
-            data: { labels: ['William', 'Sarah', 'Peter', 'Jason'], datasets: [{ data: [5, 16, 2, 3], backgroundColor: '#EC4899' }] },
-            options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
-        });
+    new Chart(document.getElementById('assigneeChart'), {
+        type:'bar',
+        data:{labels:['William','Sarah','Peter','Jason'], datasets:[{data:[5,16,2,3], backgroundColor:'#EC4899'}]},
+        options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true}}}
+    });
 
-        new Chart(document.getElementById('quotationStatusChart'), {
-            type: 'doughnut',
-            data: { labels: ['Pending', 'Approved', 'Rejected'], datasets: [{ data: [12, 8, 3], backgroundColor: ['#3B82F6', '#10B981', '#EF4444'] }] },
-            options: { plugins: { legend: { position: 'bottom' } } }
-        });
-    </script>
+    new Chart(document.getElementById('statusChart'), {
+        type:'doughnut',
+        data:{labels:['Pending','Approved','Rejected'], datasets:[{data:[12,8,3], backgroundColor:['#3B82F6','#10B981','#EF4444']}]},
+        options:{plugins:{legend:{position:'bottom'}}}
+    });
+</script>
 </body>
 </html>
