@@ -115,6 +115,87 @@
                         <h2 class="text-3xl font-extrabold text-gray-800 tracking-wide text-center">
                             Welcome, {{ request.user.username }}
                         </h2>
+                        <!-- Motivational message -->
+                        <p id="motivation" class="text-sm text-gray-500 italic mt-1"></p>
+                        
+                        <!-- Link to get another motivational quote -->
+                        <a href="#" id="newQuote"
+                           class="text-blue-600 hover:underline text-xs font-medium mt-2 inline-block">
+                           🔁 More words
+                        </a>
+                        
+                        <script>
+                            const messages = [
+                                "Believe you can and you're halfway there!",
+                                "Stay focused, stay humble, stay strong!",
+                                "Small steps every day lead to big success!",
+                                "Your hard work will pay off — keep going!",
+                                "Dream big, work hard, make it happen!",
+                                "Every challenge is an opportunity to grow!",
+                                "You are doing great — keep pushing forward!",
+                                "Great things take time — trust your journey!",
+                                "Progress, not perfection — keep moving!",
+                                "Don’t stop when you’re tired; stop when you’re done!",
+                                "The best view comes after the hardest climb!",
+                                "Push yourself, because no one else will do it for you.",
+                                "Be stronger than your excuses!",
+                                "Start where you are. Use what you have. Do what you can.",
+                                "Success is not final, failure is not fatal — it’s the courage to continue that counts.",
+                                "Every day is a new chance to improve yourself.",
+                                "You didn’t come this far just to stop now!",
+                                "Work hard in silence, let success make the noise.",
+                                "Your only limit is your mind.",
+                                "Make today count — you won’t get it back.",
+                                "Success doesn’t come from what you do occasionally; it comes from what you do consistently.",
+                                "It always seems impossible until it’s done.",
+                                "One day or day one — you decide.",
+                                "Turn your dreams into plans, and your plans into action.",
+                                "Keep your eyes on the stars, and your feet on the ground.",
+                                "You don’t have to be great to start, but you have to start to be great.",
+                                "The harder you work for something, the greater you’ll feel when you achieve it.",
+                                "Discipline is the bridge between goals and accomplishment.",
+                                "Doubt kills more dreams than failure ever will.",
+                                "Strive for progress, not perfection.",
+                                "Winners are not those who never fail but those who never quit.",
+                                "Courage doesn’t always roar — sometimes it’s the quiet voice saying ‘I’ll try again tomorrow.’",
+                                "You’re capable of more than you know!",
+                                "Even the darkest night will end and the sun will rise.",
+                                "One step at a time is still progress.",
+                                "Don’t be afraid to give up the good to go for the great.",
+                                "If it doesn’t challenge you, it won’t change you.",
+                                "Keep going — your future self will thank you.",
+                                "Make yourself proud today!",
+                                "Success is the sum of small efforts repeated day in and day out.",
+                                "The secret of getting ahead is getting started.",
+                                "You can’t have a million-dollar dream with a minimum-wage work ethic.",
+                                "Consistency beats motivation every time.",
+                                "Start now. Get better later.",
+                                "Act as if what you do makes a difference — because it does.",
+                                "Don’t wait for opportunity. Create it.",
+                                "Be the reason someone smiles today.",
+                                "The key to success is to focus on goals, not obstacles.",
+                                "You’re writing your own story — make it a good one.",
+                                "Every morning you have two choices: continue to sleep with your dreams or wake up and chase them."
+                            ];
+                        
+                            const motivationEl = document.getElementById('motivation');
+                            const newQuoteLink = document.getElementById('newQuote');
+                        
+                            // Function to show a random message
+                            function showRandomMessage() {
+                                const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+                                motivationEl.textContent = randomMessage;
+                            }
+                        
+                            // Show one when the page loads
+                            showRandomMessage();
+                        
+                            // Change message when clicking "More words"
+                            newQuoteLink.addEventListener('click', function (e) {
+                                e.preventDefault();
+                                showRandomMessage();
+                            });
+                        </script>
                     </div>
                     <p class="text-gray-600 text-md">Here's a quick summary of your business performance.</p>
                 </div>
@@ -163,7 +244,6 @@
                 });
             });
         </script>
-
 
         <!-- Summary Stats -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
