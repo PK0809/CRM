@@ -115,16 +115,8 @@
                         <h2 class="text-3xl font-extrabold text-gray-800 tracking-wide text-center">
                             Welcome, {{ request.user.username }}
                         </h2>
-                        <!-- Motivational message -->
-                        <p id="motivation" class="text-sm text-gray-500 italic mt-1"></p>
-                        
-                        <!-- Link to get another motivational quote -->
-                        <a href="#" id="newQuote"
-                           class="text-blue-600 hover:underline text-xs font-medium mt-2 inline-block">
-                           🔁 More words
-                        </a>
-                        
                         <script>
+                            // Array of motivational messages
                             const messages = [
                                 "Believe you can and you're halfway there!",
                                 "Stay focused, stay humble, stay strong!",
@@ -146,7 +138,6 @@
                                 "Work hard in silence, let success make the noise.",
                                 "Your only limit is your mind.",
                                 "Make today count — you won’t get it back.",
-                                "Success doesn’t come from what you do occasionally; it comes from what you do consistently.",
                                 "It always seems impossible until it’s done.",
                                 "One day or day one — you decide.",
                                 "Turn your dreams into plans, and your plans into action.",
@@ -157,93 +148,28 @@
                                 "Doubt kills more dreams than failure ever will.",
                                 "Strive for progress, not perfection.",
                                 "Winners are not those who never fail but those who never quit.",
-                                "Courage doesn’t always roar — sometimes it’s the quiet voice saying ‘I’ll try again tomorrow.’",
                                 "You’re capable of more than you know!",
                                 "Even the darkest night will end and the sun will rise.",
                                 "One step at a time is still progress.",
-                                "Don’t be afraid to give up the good to go for the great.",
                                 "If it doesn’t challenge you, it won’t change you.",
                                 "Keep going — your future self will thank you.",
                                 "Make yourself proud today!",
                                 "Success is the sum of small efforts repeated day in and day out.",
                                 "The secret of getting ahead is getting started.",
-                                "You can’t have a million-dollar dream with a minimum-wage work ethic.",
                                 "Consistency beats motivation every time.",
                                 "Start now. Get better later.",
                                 "Act as if what you do makes a difference — because it does.",
                                 "Don’t wait for opportunity. Create it.",
                                 "Be the reason someone smiles today.",
-                                "The key to success is to focus on goals, not obstacles.",
                                 "You’re writing your own story — make it a good one.",
                                 "Every morning you have two choices: continue to sleep with your dreams or wake up and chase them."
                             ];
                         
-                            const motivationEl = document.getElementById('motivation');
-                            const newQuoteLink = document.getElementById('newQuote');
-                        
-                            // Function to show a random message
-                            function showRandomMessage() {
-                                const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-                                motivationEl.textContent = randomMessage;
-                            }
-                        
-                            // Show one when the page loads
-                            showRandomMessage();
-                        
-                            // Change message when clicking "More words"
-                            newQuoteLink.addEventListener('click', function (e) {
-                                e.preventDefault();
-                                showRandomMessage();
-                            });
+                            // Pick a random message each time the page loads
+                            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+                            document.getElementById('motivation').textContent = randomMessage;
                         </script>
-                    </div>
-                    <p class="text-gray-600 text-md">Here's a quick summary of your business performance.</p>
-                </div>
-                <div class="relative ml-4">
-                    <button id="filterToggle"
-                            class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L15 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 019 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
-                        </svg>
-                        Filter
-                    </button>
-                    <!-- Filter Dropdown -->
-                    <div id="filterDropdown"
-                         class="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50 hidden">
-                        <h3 class="text-xl font-bold mb-2 px-4 pt-3">Filter</h3>
-                        <form method="get" class="px-4 pb-3">
-                            {% for label, value in filter_options %}
-                            <label class="block mt-1">
-                                <input type="radio" name="date_filter" value="{{ value }}"
-                                       {% if selected_filter == value %}checked{% endif %}> {{ label }}
-                            </label>
-                            {% endfor %}
-                            <button type="submit" class="mt-3 px-4 py-2 bg-blue-500 text-white rounded">Apply</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
 
-        <!-- Script to toggle dropdown -->
-        <script>
-            document.addEventListener("DOMContentLoaded", function () {
-                const toggleBtn = document.getElementById("filterToggle");
-                const dropdown = document.getElementById("filterDropdown");
-
-                toggleBtn.addEventListener("click", function (event) {
-                    event.stopPropagation();
-                    dropdown.classList.toggle("hidden");
-                });
-
-                // Close dropdown when clicking outside
-                document.addEventListener("click", function (event) {
-                    if (!dropdown.contains(event.target) && !toggleBtn.contains(event.target)) {
-                        dropdown.classList.add("hidden");
-                    }
-                });
-            });
-        </script>
 
         <!-- Summary Stats -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
