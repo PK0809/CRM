@@ -4,7 +4,27 @@ from .models import Client
 class ClientForm(forms.ModelForm):
     class Meta:
         model = Client
-        fields = ['company_name', 'type_of_company', 'gst_no',]
+        fields = [
+            "company_name",
+            "type_of_company",
+            "gst_no",
+            "contact_person",
+            "mobile",
+            "email",
+            "address",
+        ]
+        widgets = {
+            "company_name": forms.TextInput(attrs={"class": "w-full border p-2 rounded"}),
+            "type_of_company": forms.Select(attrs={
+                "class": "w-full border p-2 rounded",
+                "id": "id_type_of_company"
+            }),
+            "gst_no": forms.TextInput(attrs={"class": "w-full border p-2 rounded", "id": "id_gst_no"}),
+            "contact_person": forms.TextInput(attrs={"class": "w-full border p-2 rounded", "id": "id_contact_person"}),
+            "mobile": forms.TextInput(attrs={"class": "w-full border p-2 rounded", "id": "id_mobile"}),
+            "email": forms.EmailInput(attrs={"class": "w-full border p-2 rounded", "id": "id_email"}),
+            "address": forms.Textarea(attrs={"class": "w-full border p-2 rounded", "rows": 3}),
+        }
 
 from django import forms
 from .models import Lead

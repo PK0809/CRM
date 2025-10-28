@@ -283,52 +283,156 @@ def confirm_payment(request, payment_id):
     payment.save()
     return redirect("payment_list")
 
+
 @login_required
 def client_list(request):
-    query = request.GET.get('q', '')
-    clients = Client.objects.all()
+    # 🔍 Get search query (trim spaces)
+    query = request.GET.get('q', '').strip()
+
+    # 📋 Get all clients
+    clients = Client.objects.all().order_by('-id')
+
+    # 🔎 Filter if search query is provided
     if query:
         clients = clients.filter(company_name__icontains=query)
-    paginator = Paginator(clients, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
-    return render(request, 'client.html', {'clients': page_obj, 'query': query, 'page_obj': page_obj})
 
-def edit_client(request, client_id):
-    client = get_object_or_404(Client, id=client_id)
-    if request.method == 'POST':
-        client.company_name = request.POST.get('company_name')
-        client.type_of_company = request.POST.get('type_of_company')
-        client.gst_no = request.POST.get('gst_no')
-        client.save()
-        return redirect('client')
-    return render(request, 'edit_client.html', {'client': client})
+    # 📄 Pagination — 10 per page
+    paginator = Paginator(clients, 15)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # 🧭 Context for template
+    context = {
+        'clients': page_obj,   # paginated list
+        'query': query,        # current search text
+        'page_obj': page_obj,  # pagination object
+    }
+
+    return render(request, 'client.html', context)
+
+
 
 @login_required
 @csrf_exempt
 def client_entry(request):
+    """Handles regular form submissions from the modal (non-AJAX)."""
     if request.method == 'POST':
         company_name = request.POST.get('company_name', '').strip()
         type_of_company = request.POST.get('type_of_company', '').strip()
         gst_no = request.POST.get('gst_no', '').strip()
+        contact_person = request.POST.get('contact_person', '').strip()
+        mobile = request.POST.get('mobile', '').strip()
+        email = request.POST.get('email', '').strip()
+        address = request.POST.get('address', '').strip()  # ✅ NEW LINE
+
         if not company_name:
             messages.error(request, "Company name is required.")
-            return render(request, 'crm/client_form.html', {
-                'company_name': company_name, 'type_of_company': type_of_company, 'gst_no': gst_no
-            })
-        Client.objects.create(company_name=company_name, type_of_company=type_of_company, gst_no=gst_no)
+            return redirect('client')
+
+        # Hide GST and Contact Person if Individual
+        if type_of_company.lower() == 'individual':
+            gst_no = ''
+            contact_person = ''
+
+        # ✅ Save all fields including address
+        Client.objects.create(
+            company_name=company_name,
+            type_of_company=type_of_company,
+            gst_no=gst_no,
+            contact_person=contact_person,
+            mobile=mobile,
+            email=email,
+            address=address
+        )
+
         messages.success(request, "Client added successfully.")
         return redirect('client')
-    return render(request, 'crm/client_form.html')
+
+    return render(request, 'client.html')  # Fallback, though form is modal
+
 
 @csrf_exempt
+@login_required
 def client_entry_ajax(request):
+    """Handles AJAX submissions if you ever call via JavaScript."""
     if request.method == 'POST':
-        company_name = request.POST.get('company_name')
-        type_of_company = request.POST.get('type_of_company')
-        gst_no = request.POST.get('gst_no')
-        client = Client.objects.create(company_name=company_name, type_of_company=type_of_company, gst_no=gst_no)
-        return JsonResponse({'success': True, 'client': {'company_name': client.company_name}})
+        company_name = request.POST.get('company_name', '').strip()
+        type_of_company = request.POST.get('type_of_company', '').strip()
+        gst_no = request.POST.get('gst_no', '').strip()
+        contact_person = request.POST.get('contact_person', '').strip()
+        mobile = request.POST.get('mobile', '').strip()
+        email = request.POST.get('email', '').strip()
+        address = request.POST.get('address', '').strip()  # ✅ FIXED LINE
+
+        if not company_name:
+            return JsonResponse({'success': False, 'error': 'Company name is required.'})
+
+        # Hide GST and contact person for individuals
+        if type_of_company.lower() == 'individual':
+            gst_no = ''
+            contact_person = ''
+
+        # ✅ Save including address
+        client = Client.objects.create(
+            company_name=company_name,
+            type_of_company=type_of_company,
+            gst_no=gst_no,
+            contact_person=contact_person,
+            mobile=mobile,
+            email=email,
+            address=address,
+        )
+
+        return JsonResponse({
+            'success': True,
+            'client': {
+                'id': client.id,
+                'company_name': client.company_name,
+                'address': client.address,
+            }
+        })
+
     return JsonResponse({'success': False})
+
+
+
+# ✅ Edit an existing client
+@login_required
+def edit_client(request, client_id):
+    client = get_object_or_404(Client, id=client_id)
+
+    if request.method == 'POST':
+        client.company_name = request.POST.get('company_name', '').strip()
+        client.type_of_company = request.POST.get('type_of_company', '').strip()
+        client.gst_no = request.POST.get('gst_no', '').strip()
+        client.contact_person = request.POST.get('contact_person', '').strip()
+        client.mobile = request.POST.get('mobile', '').strip()
+        client.email = request.POST.get('email', '').strip()
+        client.address = request.POST.get('address', '').strip()
+        
+        # Auto-clear fields for Individual
+        if client.type_of_company.lower() == 'individual':
+            client.gst_no = ''
+            client.contact_person = ''
+
+        client.save()
+        messages.success(request, f'Client "{client.company_name}" updated successfully.')
+        return redirect('client')
+
+    return render(request, 'clients/edit_client.html', {'client': client})
+
+
+# ✅ Delete client confirmation
+@login_required
+def delete_client(request, client_id):
+    client = get_object_or_404(Client, id=client_id)
+    if request.method == 'POST':
+        name = client.company_name
+        client.delete()
+        messages.success(request, f'Client "{name}" deleted successfully.')
+        return redirect('client')
+    return render(request, 'clients/delete_client.html', {'client': client})
+
 
 @login_required
 def lead_list(request):
@@ -425,8 +529,7 @@ from .models import (
 )
 
 # Plain-text defaults (one item per line, no bullets here)
-DEFAULT_TERMS = """This is a system generated Quotation. Hence, signature is not needed.
-Payment Terms: 100% Advance Payment or As Per Agreed Terms
+DEFAULT_TERMS = """Payment Terms: 100% Advance Payment or As Per Agreed Terms
 Service Warranty 30 to 90 Days Depending upon the Availed Service
 All Products and Accessories Carries Standard OEM Warranty"""
 
@@ -597,7 +700,7 @@ from pathlib import Path
 from weasyprint import HTML
 from django.conf import settings
 from .models import Estimation, EstimationItem, TermsAndConditions
-from crm.utils import inr_currency_words
+from .utils import inr_currency_words
 
 def quotation_pdf(request, pk):
     estimation = get_object_or_404(Estimation, pk=pk)
@@ -617,7 +720,6 @@ class QuotationPDFView(View):
     def get(self, request, pk):
         estimation = get_object_or_404(Estimation, pk=pk)
 
-        # Prepare items
         items = [
             {
                 'item_details': item.item_details,
@@ -625,33 +727,38 @@ class QuotationPDFView(View):
                 'quantity': item.quantity,
                 'rate': item.rate,
                 'tax': item.tax,
-                'amount': item.amount
+                'amount': item.amount,
             } for item in estimation.items.all()
         ]
 
-        # Calculate values
         sub_total = estimation.sub_total or 0
         discount = estimation.discount or 0
-        taxable_value = sub_total - discount  # GST is on amount after discount
 
-        gst_amount = estimation.gst_amount or 0  # total GST saved in DB (optional)
+        # Calculate taxable value after discount
+        taxable_value = sub_total - discount
+
+        # GST calculation
+        gst_rate = 18  # can be dynamic
+        gst_amount = taxable_value * gst_rate / 100
+
+        # Split GST based on state
         company_gst_state = (estimation.gst_no or "").strip()[:2]
         our_gst_state = "29"
         same_state = company_gst_state == our_gst_state
-        gst_rate = 18
 
         if same_state:
-            cgst = sgst = taxable_value * (gst_rate/2)/100
-            igst = 0
+            cgst = sgst = gst_amount / 2
             cgst_rate = sgst_rate = gst_rate / 2
+            igst = 0
             igst_rate = 0
         else:
             cgst = sgst = 0
-            igst = taxable_value * gst_rate/100
-            igst_rate = gst_rate
+            igst = gst_amount
             cgst_rate = sgst_rate = 0
+            igst_rate = gst_rate
 
-        total = taxable_value + cgst + sgst + igst
+        # Total after discount + GST
+        total = taxable_value + gst_amount
 
         # Terms & expiry
         terms_obj = TermsAndConditions.objects.order_by('-id').first()
@@ -669,18 +776,19 @@ class QuotationPDFView(View):
             'sub_total': sub_total,
             'discount': discount,
             'taxable_value': taxable_value,
+            'gst_amount': gst_amount,
+            'total': total,
+            'same_state': same_state,
             'cgst': cgst,
             'sgst': sgst,
             'igst': igst,
             'cgst_rate': cgst_rate,
             'sgst_rate': sgst_rate,
             'igst_rate': igst_rate,
-            'total': total,
+            'terms': terms_content,
+            'expiry_date': expiry_date,
             'amount_in_words': amount_in_words,
             'logo_uri': logo_uri,
-            'expiry_date': expiry_date,
-            'same_state': same_state,
-            'terms': terms_content,
         }
 
         html_string = render_to_string('quotation_pdf_template.html', context)
@@ -688,8 +796,7 @@ class QuotationPDFView(View):
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename=Quotation_{estimation.quote_no}.pdf'
         return response
-
-
+    
 def estimation_view(request):
     sort = request.GET.get('sort', 'quote_date')
     estimations = Estimation.objects.all().order_by('company_name' if sort == 'company' else '-quote_date')
