@@ -39,6 +39,7 @@ urlpatterns = [
     path('client/add/', views.client_entry, name='client_entry'),
     path('client/add/ajax/', views.client_entry_ajax, name='client_entry_ajax'),
     path('client/edit/<int:client_id>/', views.edit_client, name='edit_client'),
+    path('clients/delete/<int:client_id>/', views.delete_client, name='delete_client'),
     path('get-gst-no/', views.get_gst_no, name='get_gst_no'),
 
     # Leads
