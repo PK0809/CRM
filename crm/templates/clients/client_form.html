@@ -1,0 +1,101 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ title|default:"Client Form" }}</title>
+  <link rel="icon" href="{% static 'img/favicon.ico' %}" type="image/x-icon">
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    // Toggle GST and Contact fields for "Individual"
+    function toggleFields() {
+      const sel = document.getElementById('id_type_of_company');
+      const gstWrap = document.getElementById('gst-wrapper');
+      const contactWrap = document.getElementById('contact-wrapper');
+      const gstInput = document.getElementById('id_gst_no');
+      const contactInput = document.getElementById('id_contact_person');
+
+      if (!sel) return;
+      const val = (sel.value || '').toLowerCase();
+      const hide = val === 'individual';
+
+      gstWrap.style.display = hide ? 'none' : '';
+      contactWrap.style.display = hide ? 'none' : '';
+
+      if (gstInput) gstInput.disabled = hide;
+      if (contactInput) contactInput.disabled = hide;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      toggleFields();
+      document.getElementById('id_type_of_company')?.addEventListener('change', toggleFields);
+    });
+  </script>
+</head>
+
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-6">
+  <div class="bg-white p-6 rounded-2xl shadow-lg w-full max-w-xl border border-gray-200">
+    <h2 class="text-3xl font-bold mb-6 text-center text-gray-800">{{ title|default:"Client Form" }}</h2>
+
+    {% if messages %}
+      <ul class="mb-4 text-red-500 text-sm list-disc list-inside">
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    <form method="POST" class="space-y-5">
+      {% csrf_token %}
+
+      <!-- Company Name -->
+      <div>
+        <label for="id_company_name" class="block text-gray-700 font-semibold mb-1">Company / Customer Name *</label>
+        {{ form.company_name }}
+      </div>
+
+      <!-- Type of Company -->
+      <div>
+        <label for="id_type_of_company" class="block text-gray-700 font-semibold mb-1">Type of Company *</label>
+        {{ form.type_of_company }}
+      </div>
+
+      <!-- GST -->
+      <div id="gst-wrapper">
+        <label for="id_gst_no" class="block text-gray-700 font-semibold mb-1">GST No</label>
+        {{ form.gst_no }}
+      </div>
+
+      <!-- Contact Person -->
+      <div id="contact-wrapper">
+        <label for="id_contact_person" class="block text-gray-700 font-semibold mb-1">Contact Person</label>
+        {{ form.contact_person }}
+      </div>
+
+      <!-- Mobile -->
+      <div>
+        <label for="id_mobile" class="block text-gray-700 font-semibold mb-1">Mobile</label>
+        {{ form.mobile }}
+      </div>
+
+      <!-- Email -->
+      <div>
+        <label for="id_email" class="block text-gray-700 font-semibold mb-1">Email</label>
+        {{ form.email }}
+      </div>
+
+      <!-- Address -->
+      <div>
+        <label for="id_address" class="block text-gray-700 font-semibold mb-1">Address</label>
+        {{ form.address }}
+      </div>
+
+      <div class="flex justify-between pt-4">
+        <a href="{% url 'client' %}" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">⬅ Back</a>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">{{ button_text|default:"Save" }}</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

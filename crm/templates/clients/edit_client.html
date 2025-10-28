@@ -1,0 +1,120 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Edit Client</title>
+  <link rel="icon" href="{% static 'img/favicon.ico' %}" type="image/x-icon">
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    // ✅ Toggle both GST & Contact Person fields
+    function toggleFields() {
+      const sel = document.getElementById('id_type_of_company');
+      const gstWrap = document.getElementById('gst-wrapper');
+      const contactWrap = document.getElementById('contact-wrapper');
+
+      if (!sel) return;
+      const val = (sel.value || '').toLowerCase();
+      const hide = val === 'individual';
+
+      gstWrap.style.display = hide ? 'none' : '';
+      contactWrap.style.display = hide ? 'none' : '';
+
+      document.getElementById('id_gst_no').disabled = hide;
+      document.getElementById('id_contact_person').disabled = hide;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      toggleFields();
+      document.addEventListener('change', (e) => {
+        if (e.target && e.target.id === 'id_type_of_company') toggleFields();
+      });
+    });
+  </script>
+</head>
+
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white p-6 rounded shadow-lg w-full max-w-xl">
+    <h2 class="text-3xl font-bold mb-6 text-center text-gray-800">Edit Client</h2>
+
+    {% if messages %}
+    <ul class="mb-4 text-red-500 text-sm list-disc list-inside">
+      {% for message in messages %}
+      <li>{{ message }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    <form method="POST">
+      {% csrf_token %}
+
+      <!-- Company Name -->
+      <div class="mb-4">
+        <label for="id_company_name" class="block text-gray-700 font-semibold mb-2">
+          Company / Customer Name
+        </label>
+        <input id="id_company_name" type="text" name="company_name"
+               value="{{ client.company_name }}" required
+               class="w-full border p-2 rounded">
+      </div>
+
+      <!-- Type of Company -->
+      <div class="mb-4">
+        <label for="id_type_of_company" class="block text-gray-700 font-semibold mb-2">
+          Type of Company
+        </label>
+        <select id="id_type_of_company" name="type_of_company" required class="w-full border p-2 rounded">
+          <option value="">-- Select Type --</option>
+          <option value="Private Limited" {% if client.type_of_company == "Private Limited" %}selected{% endif %}>Private Limited</option>
+          <option value="Public Limited" {% if client.type_of_company == "Public Limited" %}selected{% endif %}>Public Limited</option>
+          <option value="Partnership" {% if client.type_of_company == "Partnership" %}selected{% endif %}>Partnership</option>
+          <option value="Proprietorship" {% if client.type_of_company == "Proprietorship" %}selected{% endif %}>Proprietorship</option>
+          <option value="LLP" {% if client.type_of_company == "LLP" %}selected{% endif %}>LLP</option>
+          <option value="Individual" {% if client.type_of_company == "Individual" %}selected{% endif %}>Individual</option>
+        </select>
+      </div>
+
+      <!-- GST No -->
+      <div id="gst-wrapper" class="mb-4">
+        <label for="id_gst_no" class="block text-gray-700 font-semibold mb-2">GST No</label>
+        <input id="id_gst_no" type="text" name="gst_no"
+               value="{{ client.gst_no }}" class="w-full border p-2 rounded">
+      </div>
+
+      <!-- Contact Person -->
+      <div id="contact-wrapper" class="mb-4">
+        <label for="id_contact_person" class="block text-gray-700 font-semibold mb-2">Contact Person</label>
+        <input id="id_contact_person" type="text" name="contact_person"
+               value="{{ client.contact_person }}" class="w-full border p-2 rounded">
+      </div>
+
+      <!-- Mobile -->
+      <div class="mb-4">
+        <label for="id_mobile" class="block text-gray-700 font-semibold mb-2">Mobile</label>
+        <input id="id_mobile" type="text" name="mobile" maxlength="15"
+               value="{{ client.mobile }}" class="w-full border p-2 rounded">
+      </div>
+
+      <!-- Email -->
+      <div class="mb-4">
+        <label for="id_email" class="block text-gray-700 font-semibold mb-2">Email</label>
+        <input id="id_email" type="email" name="email"
+               value="{{ client.email }}" class="w-full border p-2 rounded">
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-gray-700 font-semibold mb-2">Address</label>
+        <textarea name="address" class="w-full border p-2 rounded" rows="3">{{ client.address|default_if_none:'' }}</textarea>
+      </div>
+
+
+      <!-- Buttons -->
+      <div class="flex justify-between">
+        <a href="{% url 'client' %}" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Back</a>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

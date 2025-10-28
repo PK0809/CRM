@@ -6,63 +6,63 @@
   <title>Client List</title>
   <link rel="icon" href="{% static 'img/favicon.ico' %}" type="image/x-icon">
   <script src="https://cdn.tailwindcss.com"></script>
+
   <script>
     function toggleMenu(id) {
-      document.getElementById(id).classList.toggle('hidden');
+      document.getElementById(id)?.classList.toggle('hidden');
     }
+
     function toggleSidebar() {
-      document.getElementById('sidebar').classList.toggle('hidden');
+      document.getElementById('sidebar')?.classList.toggle('hidden');
     }
+
     function openClientForm() {
       document.getElementById('clientFormModal')?.classList.remove('hidden');
-      toggleGST(); // ensure correct initial state when opening the modal
+      toggleCompanyFields();
     }
+
     function closeClientForm() {
       document.getElementById('clientFormModal')?.classList.add('hidden');
     }
-    window.onclick = function (event) {
-      const modal = document.getElementById('clientFormModal');
-      if (modal && event.target === modal) closeClientForm();
-    }
-    function filterClientsTable() {
-      const input = document.getElementById("clientSearch");
-      const filter = (input?.value || "").toLowerCase();
-      const rows = document.querySelectorAll("#clientTableBody tr");
-      rows.forEach(row => {
-        let matchFound = false;
-        row.querySelectorAll("td").forEach(cell => {
-          if ((cell.textContent || "").toLowerCase().includes(filter)) {
-            matchFound = true;
-          }
-        });
-        row.style.display = matchFound ? "" : "none";
-      });
-    }
 
-    // Show/hide GST based on company type
-    function toggleGST() {
+    // Hide GST and Contact Person for Individual
+    function toggleCompanyFields() {
       const sel = document.getElementById('id_type_of_company');
       const gstWrap = document.getElementById('gst-wrapper');
-      if (!sel || !gstWrap) return;
-      const val = (sel.value || '').toLowerCase();
-      const hide = val === 'individual';
-      gstWrap.style.display = hide ? 'none' : '';
-      // Optional: disable input when hidden to avoid accidental submission
+      const contactWrap = document.getElementById('contact-wrapper');
       const gstInput = document.getElementById('id_gst_no');
-      if (gstInput) gstInput.disabled = hide;
-      // Optional: clear value when hidden
-      // if (hide && gstInput) gstInput.value = '';
+      const contactInput = document.getElementById('id_contact_person');
+      if (!sel) return;
+
+      const val = (sel.value || '').toLowerCase();
+      const isIndividual = val === 'individual';
+
+      gstWrap.style.display = isIndividual ? 'none' : '';
+      contactWrap.style.display = isIndividual ? 'none' : '';
+      if (gstInput) gstInput.disabled = isIndividual;
+      if (contactInput) contactInput.disabled = isIndividual;
+    }
+
+    // Modal: View Address
+    function showAddressModal(companyName, address) {
+      document.getElementById('modalCompanyName').innerText = companyName;
+      document.getElementById('modalAddress').innerText = address;
+      document.getElementById('addressModal').classList.remove('hidden');
+      document.getElementById('addressModal').classList.add('flex');
+    }
+
+    function closeAddressModal() {
+      const modal = document.getElementById('addressModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      // Initial state for edit pages and when modal exists in DOM
-      toggleGST();
-      // Delegate change handler in case select is rendered later
-      document.addEventListener('change', (e) => {
-        if (e.target && e.target.id === 'id_type_of_company') toggleGST();
-      });
+      toggleCompanyFields();
+      document.getElementById('id_type_of_company')?.addEventListener('change', toggleCompanyFields);
     });
   </script>
+
   <style>
     .add-btn {
       float: right;
@@ -70,19 +70,20 @@
       padding: 10px 15px;
       background-color: #4CAF50;
       color: white;
-      text-decoration: none;
       border-radius: 5px;
+      font-weight: bold;
     }
     .add-btn:hover { background-color: #45a049; }
   </style>
 </head>
 <body class="bg-gray-100">
+
   <!-- Header -->
   <header class="flex items-center justify-between bg-white shadow p-4 h-[100px]">
     <div class="flex items-center space-x-4 w-[500px]">
-      <button onclick="toggleSidebar()" class="text-gray-500 hover:text-black focus:outline-none text-xl">☰</button>
+      <button onclick="toggleSidebar()" class="text-gray-500 hover:text-black text-xl">☰</button>
       <a href="{% url 'dashboard' %}">
-        <img src="{% static 'images/logo.png' %}" alt="Logo" class="w-[200px] h-auto ml-[-12px]">
+        <img src="{% static 'images/logo.png' %}" alt="Logo" class="w-[200px] ml-[-12px]">
       </a>
     </div>
     <div class="flex items-center space-x-2">
@@ -141,62 +142,90 @@
       <h1 class="text-3xl font-bold text-gray-800 mb-6">Clients</h1>
 
       <div class="flex items-center justify-between mb-4">
-        <input type="text"
-               id="clientSearch"
-               placeholder="🔍 Search anything..."
-               class="border border-gray-300 rounded px-5 py-3 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 mb-4"
-               onkeyup="filterClientsTable()" />
+        <form method="get" class="flex items-center space-x-2">
+          <input type="text" name="q" value="{{ query }}" placeholder="🔍 Search company..."
+            class="border border-gray-300 rounded px-5 py-3 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Search</button>
+        </form>
+
         {% if perms.crm.add_client %}
         <button type="button" onclick="openClientForm()" class="add-btn ml-auto">➕ Add New Client</button>
         {% endif %}
       </div>
 
-      <div class="bg-white border border-gray-300 rounded">
-        <table class="w-full">
+      <div class="bg-white border border-gray-300 rounded overflow-x-auto">
+        <table class="w-full min-w-[900px]">
           <thead class="bg-gray-100 font-bold">
             <tr>
               <th class="text-left p-2">Company / Customer Name</th>
               <th class="text-left p-2">Type of Company</th>
+              <th class="text-left p-2">Contact Person</th>
+              <th class="text-left p-2">Mobile</th>
+              <th class="text-left p-2">Email</th>
               <th class="text-left p-2">GST No</th>
-              <th class="text-left p-2">Actions</th>
+              <th class="text-left p-2">Address</th>
+              <th class="text-center p-2">Actions</th>
             </tr>
           </thead>
           <tbody id="clientTableBody">
             {% for client in clients %}
-            <tr class="border-t border-gray-200">
+            <tr class="border-t border-gray-200 hover:bg-gray-50">
               <td class="p-2">{{ client.company_name }}</td>
-              <td class="p-2">{{ client.type_of_company|default:"" }}</td>
-              <td class="p-2">{{ client.gst_no|default_if_none:"" }}</td>
-              <td class="p-2">
+              <td class="p-2">{{ client.type_of_company|default:"—" }}</td>
+              <td class="p-2">{{ client.contact_person|default_if_none:"—" }}</td>
+              <td class="p-2">{{ client.mobile|default_if_none:"—" }}</td>
+              <td class="p-2">{{ client.email|default_if_none:"—" }}</td>
+              <td class="p-2">{{ client.gst_no|default_if_none:"—" }}</td>
+              <td class="p-2 text-center">
+                {% if client.address %}
+                  <button 
+                    type="button" 
+                    onclick="showAddressModal('{{ client.company_name|escapejs }}', '{{ client.address|escapejs }}')" 
+                    class="text-blue-600 hover:text-blue-800"
+                    title="View Address"
+                  >
+                    👁️
+                  </button>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="p-2 flex gap-2">
                 {% if perms.crm.change_client %}
                 <a href="{% url 'edit_client' client_id=client.id %}"
-                   class="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 shadow text-sm font-medium">
-                  ✏️ Edit
-                </a>
+                  class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 shadow text-sm">✏️ Edit</a>
+                {% endif %}
+                {% if perms.crm.delete_client %}
+                <a href="{% url 'delete_client' client.id %}"
+                  class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 shadow text-sm"
+                  onclick="return confirm('Are you sure you want to delete {{ client.company_name }}?');">🗑️ Delete</a>
                 {% endif %}
               </td>
             </tr>
             {% empty %}
-            <tr><td colspan="4" class="p-4 text-center text-gray-500">No clients found.</td></tr>
+            <tr><td colspan="8" class="p-4 text-center text-gray-500">No clients found.</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
 
-      {% if page_obj %}
-      <div class="mt-2 flex justify-center space-x-2">
+      <!-- Pagination -->
+      {% if page_obj.has_other_pages %}
+      <div class="flex justify-center items-center mt-6 space-x-2">
         {% if page_obj.has_previous %}
-        <a href="?q={{ q }}&page={{ page_obj.previous_page_number }}" class="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300">&laquo;</a>
+          <a href="?q={{ query }}&page={{ page_obj.previous_page_number }}" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm">&laquo; Previous</a>
+        {% else %}
+          <span class="px-3 py-1 bg-gray-100 text-gray-400 rounded text-sm">&laquo; Previous</span>
         {% endif %}
-        {% for num in page_obj.paginator.page_range %}
-          {% if page_obj.number == num %}
-          <span class="px-3 py-1 bg-blue-500 text-white rounded">{{ num }}</span>
-          {% else %}
-          <a href="?q={{ q }}&page={{ num }}" class="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300">{{ num }}</a>
-          {% endif %}
-        {% endfor %}
+
+        <span class="px-4 py-1 bg-blue-100 text-blue-800 rounded text-sm">
+          Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+
         {% if page_obj.has_next %}
-        <a href="?q={{ q }}&page={{ page_obj.next_page_number }}" class="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300">&raquo;</a>
+          <a href="?q={{ query }}&page={{ page_obj.next_page_number }}" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm">Next &raquo;</a>
+        {% else %}
+          <span class="px-3 py-1 bg-gray-100 text-gray-400 rounded text-sm">Next &raquo;</span>
         {% endif %}
       </div>
       {% endif %}
@@ -207,18 +236,32 @@
     Designed & Developed By Nagaraj Nada
   </footer>
 
+  <!-- 👁️ Address Modal -->
+  <div id="addressModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-lg w-[400px] p-6 relative">
+      <h2 class="text-lg font-bold mb-3">Client Address</h2>
+      <p id="modalCompanyName" class="font-semibold text-gray-700 mb-2"></p>
+      <div id="modalAddress" class="text-gray-700 whitespace-pre-line mb-4"></div>
+      <div class="flex justify-end">
+        <button onclick="closeAddressModal()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Close</button>
+      </div>
+    </div>
+  </div>
+
   {% if perms.crm.add_client %}
+  <!-- Add Client Modal -->
   <div id="clientFormModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
     <div class="bg-white p-6 rounded-lg shadow-lg w-[420px]">
       <h2 class="text-xl font-bold mb-4">Add New Client</h2>
       <form method="POST" action="{% url 'client_entry' %}">
         {% csrf_token %}
         <div class="mb-3">
-          <label for="id_company_name" class="block font-semibold">Company / Customer Name *</label>
+          <label class="block font-semibold">Company / Customer Name *</label>
           <input id="id_company_name" type="text" name="company_name" required class="w-full border p-2 rounded">
         </div>
+
         <div class="mb-3">
-          <label for="id_type_of_company" class="block font-semibold">Type of Company *</label>
+          <label class="block font-semibold">Type of Company *</label>
           <select id="id_type_of_company" name="type_of_company" required class="w-full border p-2 rounded">
             <option value="">-- Select Type --</option>
             <option value="Private Limited">Private Limited</option>
@@ -229,10 +272,32 @@
             <option value="Individual">Individual</option>
           </select>
         </div>
+
         <div id="gst-wrapper" class="mb-3">
-          <label for="id_gst_no" class="block font-semibold">GST No</label>
+          <label class="block font-semibold">GST No</label>
           <input id="id_gst_no" type="text" name="gst_no" class="w-full border p-2 rounded">
         </div>
+
+        <div id="contact-wrapper" class="mb-3">
+          <label class="block font-semibold">Contact Person</label>
+          <input id="id_contact_person" type="text" name="contact_person" class="w-full border p-2 rounded">
+        </div>
+
+        <div class="mb-3">
+          <label class="block font-semibold">Mobile *</label>
+          <input id="id_mobile" type="text" name="mobile" maxlength="15" required class="w-full border p-2 rounded">
+        </div>
+
+        <div class="mb-3">
+          <label class="block font-semibold">Email</label>
+          <input id="id_email" type="email" name="email" class="w-full border p-2 rounded">
+        </div>
+
+        <div class="mb-3">
+          <label for="id_address" class="block text-gray-700 font-semibold mb-2">Address *</label>
+          <textarea id="id_address" name="address" rows="3" required class="w-full border p-2 rounded"></textarea>
+        </div>
+
         <div class="flex justify-end space-x-2 mt-4">
           <button type="button" onclick="closeClientForm()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
           <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
@@ -243,4 +308,3 @@
   {% endif %}
 </body>
 </html>
-
