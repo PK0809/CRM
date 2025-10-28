@@ -17,12 +17,12 @@
     }
 
     function openClientForm() {
-      document.getElementById('clientFormModal')?.classList.remove('hidden');
+      document.getElementById('clientFormModal').classList.remove('hidden');
       toggleCompanyFields();
     }
 
     function closeClientForm() {
-      document.getElementById('clientFormModal')?.classList.add('hidden');
+      document.getElementById('clientFormModal').classList.add('hidden');
     }
 
     // Hide GST and Contact Person for Individual
@@ -46,9 +46,10 @@
     // Modal: View Address
     function showAddressModal(companyName, address) {
       document.getElementById('modalCompanyName').innerText = companyName;
-      document.getElementById('modalAddress').innerText = address;
-      document.getElementById('addressModal').classList.remove('hidden');
-      document.getElementById('addressModal').classList.add('flex');
+      document.getElementById('modalAddress').innerText = address || 'No address available.';
+      const modal = document.getElementById('addressModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
     }
 
     function closeAddressModal() {
@@ -61,6 +62,33 @@
       toggleCompanyFields();
       document.getElementById('id_type_of_company')?.addEventListener('change', toggleCompanyFields);
     });
+
+    // Validate before submit
+    function validateClientForm() {
+      const mobile = document.getElementById('id_mobile').value.trim();
+      const address = document.getElementById('id_address').value.trim();
+
+      if (mobile === '' || address === '') {
+        alert('⚠️ Both Mobile and Address are mandatory!');
+        return false;
+      }
+
+      const mobilePattern = /^[0-9]{10}$/;
+      if (!mobilePattern.test(mobile)) {
+        alert('Please enter a valid mobile number (10 digits).');
+        return false;
+      }
+
+    // Email validation (optional field)
+      if (email !== '') {
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailPattern.test(email)) {
+          alert('📧 Please enter a valid email address.');
+          return false;
+        }
+      }
+      return true;
+    }
   </script>
 
   <style>
@@ -76,8 +104,8 @@
     .add-btn:hover { background-color: #45a049; }
   </style>
 </head>
-<body class="bg-gray-100">
 
+<body class="bg-gray-100">
   <!-- Header -->
   <header class="flex items-center justify-between bg-white shadow p-4 h-[100px]">
     <div class="flex items-center space-x-4 w-[500px]">
@@ -167,7 +195,7 @@
               <th class="text-center p-2">Actions</th>
             </tr>
           </thead>
-          <tbody id="clientTableBody">
+          <tbody>
             {% for client in clients %}
             <tr class="border-t border-gray-200 hover:bg-gray-50">
               <td class="p-2">{{ client.company_name }}</td>
@@ -182,22 +210,19 @@
                     type="button" 
                     onclick="showAddressModal('{{ client.company_name|escapejs }}', '{{ client.address|escapejs }}')" 
                     class="text-blue-600 hover:text-blue-800"
-                    title="View Address"
-                  >
+                    title="View Address">
                     👁️
                   </button>
                 {% else %}
                   —
                 {% endif %}
               </td>
-              <td class="p-2 flex gap-2">
+              <td class="p-2 flex gap-2 justify-center">
                 {% if perms.crm.change_client %}
-                <a href="{% url 'edit_client' client_id=client.id %}"
-                  class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 shadow text-sm">✏️ Edit</a>
+                <a href="{% url 'edit_client' client_id=client.id %}" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">✏️ Edit</a>
                 {% endif %}
                 {% if perms.crm.delete_client %}
-                <a href="{% url 'delete_client' client.id %}"
-                  class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 shadow text-sm"
+                <a href="{% url 'delete_client' client.id %}" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
                   onclick="return confirm('Are you sure you want to delete {{ client.company_name }}?');">🗑️ Delete</a>
                 {% endif %}
               </td>
@@ -253,7 +278,7 @@
   <div id="clientFormModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
     <div class="bg-white p-6 rounded-lg shadow-lg w-[420px]">
       <h2 class="text-xl font-bold mb-4">Add New Client</h2>
-      <form method="POST" action="{% url 'client_entry' %}">
+      <form method="POST" action="{% url 'client_entry' %}" onsubmit="return validateClientForm();">
         {% csrf_token %}
         <div class="mb-3">
           <label class="block font-semibold">Company / Customer Name *</label>
@@ -285,7 +310,7 @@
 
         <div class="mb-3">
           <label class="block font-semibold">Mobile *</label>
-          <input id="id_mobile" type="text" name="mobile" maxlength="15" required class="w-full border p-2 rounded">
+          <input id="id_mobile" type="text" name="mobile" maxlength="10" required class="w-full border p-2 rounded">
         </div>
 
         <div class="mb-3">
@@ -294,7 +319,7 @@
         </div>
 
         <div class="mb-3">
-          <label for="id_address" class="block text-gray-700 font-semibold mb-2">Address *</label>
+          <label class="block text-gray-700 font-semibold mb-2">Address *</label>
           <textarea id="id_address" name="address" rows="3" required class="w-full border p-2 rounded"></textarea>
         </div>
 
