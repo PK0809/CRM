@@ -65,6 +65,17 @@ class Client(models.Model):
     def __str__(self):
         return self.company_name
 
+class Branch(models.Model):
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='branches')
+    branch_name = models.CharField(max_length=255)
+    contact_person = models.CharField(max_length=100, blank=True, null=True)
+    mobile = models.CharField(max_length=15)
+    gst_no = models.CharField(max_length=50, blank=True, null=True)
+    address = models.TextField()
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.branch_name} - {self.client.company_name}"
 
 # ====================================================
 #  Lead

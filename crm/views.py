@@ -20,7 +20,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from .models import (
-    UserProfile, Client, Invoice, Lead, Estimation, EstimationItem,
+    UserProfile, Client, Invoice, Lead, Estimation, EstimationItem, Branch,
     UserPermission, PaymentLog, GSTSettings, EstimationSettings,
     TermsAndConditions
 )
@@ -290,11 +290,16 @@ def client_list(request):
     query = request.GET.get('q', '').strip()
 
     # 📋 Get all clients
-    clients = Client.objects.all().order_by('-id')
+    all_clients = Client.objects.all().order_by('-id')
+    total_clients = all_clients.count()
 
     # 🔎 Filter if search query is provided
     if query:
-        clients = clients.filter(company_name__icontains=query)
+        clients = all_clients.filter(company_name__icontains=query).order_by('-id')
+        filtered_count = clients.count()
+    else:
+        clients = all_clients
+        filtered_count = total_clients
 
     # 📄 Pagination — 10 per page
     paginator = Paginator(clients, 15)
@@ -306,6 +311,8 @@ def client_list(request):
         'clients': page_obj,   # paginated list
         'query': query,        # current search text
         'page_obj': page_obj,  # pagination object
+        'total_clients': total_clients,
+        'filtered_count': filtered_count,
     }
 
     return render(request, 'client.html', context)
@@ -351,7 +358,6 @@ def client_entry(request):
     return render(request, 'client.html')  # Fallback, though form is modal
 
 
-@csrf_exempt
 @login_required
 def client_entry_ajax(request):
     """Handles AJAX submissions if you ever call via JavaScript."""
@@ -432,6 +438,93 @@ def delete_client(request, client_id):
         messages.success(request, f'Client "{name}" deleted successfully.')
         return redirect('client')
     return render(request, 'clients/delete_client.html', {'client': client})
+
+
+@csrf_exempt
+@login_required
+def add_branch(request):
+    if request.method == 'POST':
+        client_id = request.POST.get('client_id')
+        branch_name = request.POST.get('branch_name')
+        contact_person = request.POST.get('contact_person', '')
+        mobile = request.POST.get('mobile')
+        gst_no = request.POST.get('gst_no', '')
+        address = request.POST.get('address')
+
+        if not branch_name or not mobile or not address:
+            messages.error(request, "All required fields must be filled.")
+            return redirect('branch_list', client_id=client_id)
+
+        Branch.objects.create(
+            client_id=client_id,
+            branch_name=branch_name,
+            contact_person=contact_person,
+            mobile=mobile,
+            gst_no=gst_no,
+            address=address
+        )
+
+        messages.success(request, "Branch added successfully.")
+        return redirect('branch_list', client_id=client_id)
+
+    return JsonResponse({'success': False})
+
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import Client, Branch
+
+@login_required
+def branch_list(request, client_id):
+    """List, add, edit, and delete branches for a specific client."""
+    client = get_object_or_404(Client, id=client_id)
+    branches = Branch.objects.filter(client=client).order_by('-id')
+
+    # Handle Add or Edit
+    if request.method == 'POST':
+        branch_id = request.POST.get('branch_id')
+        branch_name = request.POST.get('branch_name', '').strip()
+        contact_person = request.POST.get('contact_person', '').strip()
+        mobile = request.POST.get('mobile', '').strip()
+        gst_no = request.POST.get('gst_no', '').strip()
+        address = request.POST.get('address', '').strip()
+
+        if not branch_name or not mobile or not address:
+            messages.error(request, "Branch Name, Mobile, and Address are required.")
+        else:
+            if branch_id:  # Edit existing
+                branch = get_object_or_404(Branch, id=branch_id, client=client)
+                branch.branch_name = branch_name
+                branch.contact_person = contact_person
+                branch.mobile = mobile
+                branch.gst_no = gst_no
+                branch.address = address
+                branch.save()
+                messages.success(request, f"✅ Branch '{branch.branch_name}' updated successfully.")
+            else:  # Add new
+                Branch.objects.create(
+                    client=client,
+                    branch_name=branch_name,
+                    contact_person=contact_person,
+                    mobile=mobile,
+                    gst_no=gst_no,
+                    address=address
+                )
+                messages.success(request, f"✅ Branch '{branch_name}' added successfully.")
+            return redirect('branch_list', client_id=client.id)
+
+    context = {'client': client, 'branches': branches}
+    return render(request, 'branches/branch_list.html', context)
+
+
+@login_required
+def delete_branch(request, client_id, branch_id):
+    branch = get_object_or_404(Branch, id=branch_id, client_id=client_id)
+    branch_name = branch.branch_name
+    branch.delete()
+    messages.success(request, f"🗑️ Branch '{branch_name}' deleted successfully.")
+    return redirect('branch_list', client_id=client_id)
+
 
 
 @login_required
