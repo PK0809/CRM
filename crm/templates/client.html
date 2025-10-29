@@ -167,17 +167,52 @@
 
     <!-- Main Content -->
     <main class="flex-1 p-6">
-      <h1 class="text-3xl font-bold text-gray-800 mb-6">Clients</h1>
+      <h1 class="text-3xl font-bold text-gray-800 mb-6"></h1>
 
       <div class="flex items-center justify-between mb-4">
+      <h1 class="text-3xl font-bold text-gray-800">
+        Clients
+        {% if query %}
+          <span class="text-gray-600 text-lg font-medium">
+            (Showing {{ filtered_count }} of {{ total_clients }})
+          </span>
+        {% else %}
+          <span class="text-gray-600 text-lg font-medium">
+            (Total: {{ total_clients }})
+          </span>
+        {% endif %}
+      </h1>
+
+      <!-- 🔍 Search Form -->
+    </div>
+
+      <div class="flex flex-wrap items-center justify-between mb-4 gap-3">
         <form method="get" class="flex items-center space-x-2">
-          <input type="text" name="q" value="{{ query }}" placeholder="🔍 Search company..."
-            class="border border-gray-300 rounded px-5 py-3 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-          <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Search</button>
+          <label for="search" class="sr-only">Search Company</label>
+          <input
+            type="text"
+            id="search"
+            name="q"
+            value="{{ query }}"
+            placeholder="🔍 Search company..."
+            class="border border-gray-300 rounded-md px-4 py-2 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <button
+            type="submit"
+            class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors duration-150"
+          >
+            Search
+          </button>
         </form>
 
         {% if perms.crm.add_client %}
-        <button type="button" onclick="openClientForm()" class="add-btn ml-auto">➕ Add New Client</button>
+        <button
+          type="button"
+          onclick="openClientForm()"
+          class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors duration-150"
+        >
+          ➕ Add New Client
+        </button>
         {% endif %}
       </div>
 
@@ -216,16 +251,38 @@
                 {% else %}
                   —
                 {% endif %}
-              </td>
-              <td class="p-2 flex gap-2 justify-center">
+             </td>
+            <td class="p-2 text-center">
+              <div class="flex flex-wrap justify-center gap-2">
+
+                <!-- 🏢 Branch Button -->
+                <a href="{% url 'branch_list' client.id %}"
+                  class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 text-sm"
+                  title="View Branches">
+                  🏢 Branch
+                </a>
+
                 {% if perms.crm.change_client %}
-                <a href="{% url 'edit_client' client_id=client.id %}" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">✏️ Edit</a>
+                <!-- ✏️ Edit Button -->
+                <a href="{% url 'edit_client' client.id %}"
+                  class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm"
+                  title="Edit Client">
+                  ✏️ Edit
+                </a>
                 {% endif %}
+
                 {% if perms.crm.delete_client %}
-                <a href="{% url 'delete_client' client.id %}" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
-                  onclick="return confirm('Are you sure you want to delete {{ client.company_name }}?');">🗑️ Delete</a>
+                <!-- 🗑️ Delete Button -->
+                <a href="{% url 'delete_client' client.id %}"
+                  class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
+                  onclick="return confirm('Are you sure you want to delete {{ client.company_name }}?');"
+                  title="Delete Client">
+                  🗑️ Delete
+                </a>
                 {% endif %}
-              </td>
+                
+              </div>
+            </td>
             </tr>
             {% empty %}
             <tr><td colspan="8" class="p-4 text-center text-gray-500">No clients found.</td></tr>

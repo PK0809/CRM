@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mx-auto p-6">
+
+  <!-- Flash Messages -->
+  {% if messages %}
+    <div class="mb-4">
+      {% for message in messages %}
+        <div class="p-3 rounded {{ message.tags }} {% if message.tags == 'success' %}bg-green-100 text-green-700{% elif message.tags == 'error' %}bg-red-100 text-red-700{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- Header -->
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-2xl font-semibold">
+      Branches of <span class="text-blue-600">{{ client.company_name }}</span>
+    </h2>
+    <button onclick="openAddModal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+      ➕ Add New Branch
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="overflow-x-auto">
+    <table class="min-w-full border border-gray-300 rounded-lg shadow-sm">
+      <thead class="bg-gray-100 text-gray-700">
+        <tr>
+          <th class="px-4 py-2 text-left">Branch Name</th>
+          <th class="px-4 py-2 text-left">Contact Person</th>
+          <th class="px-4 py-2 text-left">Mobile</th>
+          <th class="px-4 py-2 text-left">GST No</th>
+          <th class="px-4 py-2 text-left">Address</th>
+          <th class="px-4 py-2 text-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for branch in branches %}
+        <tr class="border-t hover:bg-gray-50">
+          <td class="px-4 py-2">{{ branch.branch_name }}</td>
+          <td class="px-4 py-2">{{ branch.contact_person|default:"—" }}</td>
+          <td class="px-4 py-2">{{ branch.mobile }}</td>
+          <td class="px-4 py-2">{{ branch.gst_no|default:"—" }}</td>
+          <td class="px-4 py-2">{{ branch.address }}</td>
+          <td class="px-4 py-2 text-center space-x-2">
+            <button onclick="openEditModal({{ branch.id }}, '{{ branch.branch_name|escapejs }}', '{{ branch.contact_person|default_if_none:''|escapejs }}', '{{ branch.mobile|escapejs }}', '{{ branch.gst_no|default_if_none:''|escapejs }}', '{{ branch.address|escapejs }}')"
+                    class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">✏️ Edit</button>
+
+            <a href="{% url 'delete_branch' client.id branch.id %}" 
+               onclick="return confirm('Are you sure you want to delete {{ branch.branch_name }}?');"
+               class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm">
+               🗑️ Delete
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="px-4 py-3 text-center text-gray-500">
+            No branches found for this client.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Back Button -->
+  <div class="mt-4">
+    <a href="{% url 'client' %}" class="text-blue-500 hover:underline">← Back to Clients</a>
+  </div>
+</div>
+
+<!-- 🔹 Add Branch Modal -->
+<div id="addBranchModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center">
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+    <button type="button" onclick="closeAddModal()" class="absolute top-2 right-2 text-gray-600 hover:text-gray-800">✖</button>
+    <h3 class="text-xl font-semibold mb-4 text-center">Add New Branch</h3>
+    <form method="POST" class="space-y-3">
+      {% csrf_token %}
+      <input type="hidden" name="branch_id" value="">
+      <div><label class="block">Branch Name</label><input name="branch_name" class="w-full border rounded p-2" required></div>
+      <div><label class="block">Contact Person</label><input name="contact_person" class="w-full border rounded p-2"></div>
+      <div><label class="block">Mobile</label><input name="mobile" class="w-full border rounded p-2" required></div>
+      <div><label class="block">GST No</label><input name="gst_no" class="w-full border rounded p-2"></div>
+      <div><label class="block">Address</label><textarea name="address" rows="3" class="w-full border rounded p-2" required></textarea></div>
+      <div class="flex justify-center gap-3 mt-4">
+        <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">💾 Save</button>
+        <button type="button" onclick="closeAddModal()" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">✖ Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 🔹 Edit Branch Modal -->
+<div id="editBranchModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center">
+  <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+    <button type="button" onclick="closeEditModal()" class="absolute top-2 right-2 text-gray-600 hover:text-gray-800">✖</button>
+    <h3 class="text-xl font-semibold mb-4 text-center">Edit Branch</h3>
+    <form method="POST" class="space-y-3">
+      {% csrf_token %}
+      <input type="hidden" name="branch_id" id="edit_branch_id">
+      <div><label class="block">Branch Name</label><input id="edit_branch_name" name="branch_name" class="w-full border rounded p-2" required></div>
+      <div><label class="block">Contact Person</label><input id="edit_contact_person" name="contact_person" class="w-full border rounded p-2"></div>
+      <div><label class="block">Mobile</label><input id="edit_mobile" name="mobile" class="w-full border rounded p-2" required></div>
+      <div><label class="block">GST No</label><input id="edit_gst_no" name="gst_no" class="w-full border rounded p-2"></div>
+      <div><label class="block">Address</label><textarea id="edit_address" name="address" rows="3" class="w-full border rounded p-2" required></textarea></div>
+      <div class="flex justify-center gap-3 mt-4">
+        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">💾 Update</button>
+        <button type="button" onclick="closeEditModal()" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">✖ Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openAddModal() {
+  document.getElementById('addBranchModal').classList.remove('hidden');
+}
+function closeAddModal() {
+  document.getElementById('addBranchModal').classList.add('hidden');
+}
+function openEditModal(id, name, contact, mobile, gst, address) {
+  document.getElementById('edit_branch_id').value = id;
+  document.getElementById('edit_branch_name').value = name;
+  document.getElementById('edit_contact_person').value = contact;
+  document.getElementById('edit_mobile').value = mobile;
+  document.getElementById('edit_gst_no').value = gst;
+  document.getElementById('edit_address').value = address;
+  document.getElementById('editBranchModal').classList.remove('hidden');
+}
+function closeEditModal() {
+  document.getElementById('editBranchModal').classList.add('hidden');
+}
+</script>
+{% endblock %}
