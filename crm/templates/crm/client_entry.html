@@ -1,0 +1,31 @@
+<!-- templates/client_list.html -->
+<h2>Client List</h2>
+<a href="{% url 'client_entry' %}" class="btn btn-primary float-end">Add New Client</a>
+<table class="table table-striped mt-4">
+    <thead>
+        <tr>
+            <th>Company Name</th>
+            <th>Contact Person</th>
+            <th>Mobile</th>
+            <th>Email</th>
+            <th>GST</th>
+            <th>PAN</th>
+            <th>Company Type</th>
+            <th>Created At</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for client in clients %}
+        <tr>
+            <td>{{ client.company_name }}</td>
+            <td>{{ client.contact_person }}</td>
+            <td>{{ client.mobile }}</td>
+            <td>{{ client.email }}</td>
+            <td>{{ client.gst }}</td>
+            <td>{{ client.pan }}</td>
+            <td>{{ client.company_type }}</td>
+            <td>{{ client.created_at }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
