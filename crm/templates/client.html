@@ -150,8 +150,10 @@
           {% if perms.crm.view_invoice %}
           <a href="/invoices/" class="block py-1 text-blue-600 hover:underline font-semibold">🧾 Invoice</a>
           {% endif %}
+          {% if perms.crm.view_report %}
+          <a href="{% url 'report_list' %}" class="block py-1 text-blue-600 hover:underline font-semibold">📊 Reports</a>
+          {% endif %}
         </div>
-      </div>
 
       {% if request.user.is_superuser %}
       <div class="mt-4">
