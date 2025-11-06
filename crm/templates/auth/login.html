@@ -1,0 +1,306 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRM Login</title>
+  <link rel="icon" href="{% static 'images/logo.png' %}" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://kit.fontawesome.com/a2e0e9f6f2.js" crossorigin="anonymous"></script>
+
+  <style>
+    /* === Background Layout === */
+    body {
+      margin: 0;
+      background: url("{% static 'images/background.jpg' %}") center center fixed no-repeat;
+      background-size: cover;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+      font-family: 'Poppins', sans-serif;
+      position: relative;
+    }
+
+    /* Overlay tint for readability */
+    body::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(0, 30, 70, 0.45), rgba(0, 0, 0, 0.85));
+      z-index: 0;
+    }
+
+    /* === Glass Login Box === */
+    .glass-box {
+      position: relative;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(15px);
+      border-radius: 25px;
+      padding: 3rem 2.5rem;
+      width: 100%;
+      max-width: 420px;
+      box-shadow:
+        0 0 40px rgba(0, 173, 255, 0.25),
+        0 0 10px rgba(0, 255, 255, 0.15) inset,
+        0 10px 40px rgba(0, 0, 0, 0.6);
+      text-align: center;
+      animation: fadeUp 1.5s ease-in-out;
+    }
+
+    @keyframes fadeUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* === Enhanced Logo === */
+    .logo-container {
+      position: relative;
+      display: inline-block;
+      margin-bottom: 1.8rem;
+      width: 260px;
+      height: auto;
+    }
+
+    /* Focused dark mask for readability */
+    .logo-mask {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center,
+        rgba(0, 10, 25, 0.9) 0%,
+        rgba(0, 20, 40, 0.7) 50%,
+        rgba(0, 25, 60, 0.3) 75%,
+        transparent 100%);
+      border-radius: 20px;
+      z-index: 1;
+    }
+
+    /* Subtle glow behind logo */
+    .logo-container::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.3), transparent 70%);
+      filter: blur(35px);
+      z-index: 0;
+      animation: pulseLogo 4s infinite ease-in-out;
+    }
+
+    @keyframes pulseLogo {
+      0%, 100% { opacity: 0.8; transform: translate(-50%, -50%) scale(1); }
+      50% { opacity: 0.6; transform: translate(-50%, -50%) scale(1.05); }
+    }
+
+    /* Actual logo image */
+    .logo-img {
+      position: relative;
+      z-index: 2;
+      width: 240px;
+      height: auto;
+      filter:
+        brightness(1.3)
+        contrast(1.15)
+        drop-shadow(0 0 6px rgba(255, 255, 255, 0.9))
+        drop-shadow(0 0 12px rgba(0, 200, 255, 0.7))
+        drop-shadow(0 0 18px rgba(255, 60, 60, 0.5));
+      transition: transform 0.3s ease, filter 0.4s ease;
+    }
+
+    .logo-img:hover {
+      transform: scale(1.03);
+      filter:
+        brightness(1.35)
+        drop-shadow(0 0 10px rgba(0, 255, 255, 1))
+        drop-shadow(0 0 25px rgba(255, 60, 60, 0.7));
+    }
+
+    /* === Headings === */
+    h2 {
+      color: #e6f0ff;
+      font-weight: 700;
+      font-size: 1.6rem;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 0 8px rgba(0, 200, 255, 0.5);
+    }
+
+    p {
+      color: #a8c2e5;
+      font-size: 0.9rem;
+    }
+
+    /* === Input Fields === */
+    input {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #e6f0ff;
+      transition: 0.3s;
+    }
+
+    input:focus {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: #00aaff;
+      box-shadow: 0 0 10px rgba(0, 200, 255, 0.6);
+      outline: none;
+    }
+
+    ::placeholder {
+      color: #c9d9f3;
+    }
+
+    /* === Login Button === */
+    .login-btn {
+      background: linear-gradient(90deg, #00bfff, #0077ff);
+      border: none;
+      border-radius: 12px;
+      padding: 0.7rem;
+      color: white;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 15px rgba(0, 173, 255, 0.4);
+    }
+
+    .login-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 30px rgba(0, 173, 255, 0.8);
+    }
+
+    /* === Footer === */
+    footer {
+      position: fixed;
+      bottom: 10px;
+      right: 20px;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 13px;
+      background: rgba(0, 0, 0, 0.45);
+      padding: 5px 12px;
+      border-radius: 8px;
+      z-index: 2;
+    }
+
+    .toggle-btn svg {
+      transition: opacity 0.2s ease-in-out;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="glass-box">
+    <!-- Logo -->
+    <div class="logo-container">
+      <div class="logo-mask"></div>
+      <img src="{% static 'images/logo.png' %}" alt="CRM Logo" class="logo-img" />
+    </div>
+
+    <h2>CRM Sign In</h2>
+    <p class="mb-6">Access your dashboard securely</p>
+
+    {% if messages %}
+      <div class="mb-3">
+        {% for message in messages %}
+          <p class="bg-red-100 text-red-700 rounded-md py-2 px-3 text-sm">{{ message }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- Login Form -->
+    <form method="POST" id="loginForm" class="space-y-4">
+      {% csrf_token %}
+      <div class="relative">
+        <i class="fas fa-user absolute left-3 top-3 text-blue-300"></i>
+        <input type="text" id="username" name="username" placeholder="Username" required
+          class="pl-10 pr-3 py-2 w-full rounded-md focus:ring-2 focus:ring-blue-500" />
+      </div>
+
+      <div class="relative">
+        <i class="fas fa-lock absolute left-3 top-3 text-blue-300"></i>
+        <input type="password" id="password" name="password" placeholder="Password" required
+          class="pl-10 pr-10 py-2 w-full rounded-md focus:ring-2 focus:ring-blue-500" />
+        <button type="button" id="togglePassword"
+          class="absolute right-3 top-2.5 text-gray-300 hover:text-blue-400 toggle-btn">
+          <!-- Eye open -->
+          <svg id="eyeOpen" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+            stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M2.036 12.322a1 1 0 010-.644C3.423 7.51 7.26 4.5 12 4.5
+                 c4.74 0 8.577 3.01 9.964 7.178a1 1 0 010 .644
+                 C20.577 16.49 16.74 19.5 12 19.5
+                 c-4.74 0-8.577-3.01-9.964-7.178z" />
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <!-- Eye closed -->
+          <svg id="eyeClosed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+            stroke-width="1.5" stroke="currentColor" class="w-5 h-5 hidden">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M3.98 8.223A10.477 10.477 0 001.934 12
+                 C3.226 16.338 7.244 19.5 12 19.5
+                 c.74 0 1.464-.07 2.163-.204
+                 M6.228 6.228A10.451 10.451 0 0112 4.5
+                 c4.756 0 8.774 3.162 10.066 7.5
+                 a10.523 10.523 0 01-4.293 5.774
+                 M6.228 6.228L3 3m3.228 3.228l12.544 12.544" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-blue-100">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="rememberMe" class="accent-blue-400">
+          Remember Me
+        </label>
+        <a href="#" class="hover:text-blue-300">Forgot Password?</a>
+      </div>
+
+      <button type="submit" class="w-full login-btn mt-4">Login</button>
+    </form>
+  </div>
+
+  <footer>
+    Designed & Developed By <b>Nagaraj Nada</b>
+  </footer>
+
+  <!-- JS for password toggle & remember me -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const toggleBtn = document.getElementById("togglePassword");
+      const passwordInput = document.getElementById("password");
+      const eyeOpen = document.getElementById("eyeOpen");
+      const eyeClosed = document.getElementById("eyeClosed");
+      const usernameInput = document.getElementById("username");
+      const rememberMe = document.getElementById("rememberMe");
+
+      toggleBtn.addEventListener("click", () => {
+        const isPassword = passwordInput.type === "password";
+        passwordInput.type = isPassword ? "text" : "password";
+        eyeOpen.classList.toggle("hidden", !isPassword);
+        eyeClosed.classList.toggle("hidden", isPassword);
+      });
+
+      if (localStorage.getItem("rememberMe") === "true") {
+        usernameInput.value = localStorage.getItem("username");
+        passwordInput.value = localStorage.getItem("password");
+        rememberMe.checked = true;
+      }
+
+      document.getElementById("loginForm").addEventListener("submit", function () {
+        if (rememberMe.checked) {
+          localStorage.setItem("username", usernameInput.value);
+          localStorage.setItem("password", passwordInput.value);
+          localStorage.setItem("rememberMe", "true");
+        } else {
+          localStorage.clear();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

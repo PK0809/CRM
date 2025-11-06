@@ -213,6 +213,107 @@
         </footer>
     </main>
 </div>
+<!-- Greeting Popup -->
+<style>
+    #welcomePopup {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(6px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+    #welcomePopup.active {
+        visibility: visible;
+        opacity: 1;
+    }
+    .popup-content {
+        position: relative;
+        background: linear-gradient(145deg, #0a192f, #112240);
+        color: white;
+        padding: 2.5rem;
+        border-radius: 20px;
+        box-shadow: 0 0 30px rgba(0, 255, 255, 0.4),
+                    inset 0 0 25px rgba(255, 255, 255, 0.05);
+        text-align: center;
+        transform: scale(0.7);
+        opacity: 0;
+        transition: all 0.6s ease;
+    }
+    #welcomePopup.active .popup-content {
+        transform: scale(1);
+        opacity: 1;
+    }
+    .popup-glow {
+        position: absolute;
+        inset: -20px;
+        background: radial-gradient(circle, rgba(0,255,255,0.25), transparent 70%);
+        filter: blur(30px);
+        border-radius: 20px;
+        z-index: -1;
+        animation: pulseGlow 4s infinite ease-in-out;
+    }
+    @keyframes pulseGlow {
+        0%, 100% { opacity: 0.8; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(1.05); }
+    }
+    .popup-btn {
+        margin-top: 20px;
+        background: linear-gradient(90deg, #00bfff, #0077ff);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 10px 24px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .popup-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0 25px rgba(0, 255, 255, 0.6);
+    }
+</style>
+
+<div id="welcomePopup">
+    <div class="popup-content">
+        <div class="popup-glow"></div>
+        <h2 id="greetingText" class="text-3xl font-bold mb-3 text-cyan-300"></h2>
+        <p id="userGreeting" class="text-lg text-gray-200"></p>
+        <button class="popup-btn" onclick="closeWelcomePopup()">Let's Go 🚀</button>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const popup = document.getElementById("welcomePopup");
+    const greetingText = document.getElementById("greetingText");
+    const userGreeting = document.getElementById("userGreeting");
+    const username = "{{ request.user.first_name|default:request.user.username|title }}";
+
+    if (!sessionStorage.getItem("greetingShown")) {
+        const hour = new Date().getHours();
+        let greeting = "Welcome";
+        if (hour < 12) greeting = "Good Morning ☀️";
+        else if (hour < 18) greeting = "Good Afternoon 🌤️";
+        else greeting = "Good Evening 🌙";
+
+        greetingText.textContent = greeting;
+        userGreeting.textContent = `Hello, ${username}! Welcome back to iSecure CRM.`;
+        popup.classList.add("active");
+        sessionStorage.setItem("greetingShown", "true");
+        setTimeout(() => closeWelcomePopup(), 4000);
+    }
+});
+
+function closeWelcomePopup() {
+    document.getElementById("welcomePopup").classList.remove("active");
+}
+</script>
 
 <!-- Scripts -->
 <script>
@@ -278,6 +379,7 @@
         document.getElementById("motivation").textContent = messages[Math.floor(Math.random()*messages.length)];
     });
 
+    
     // Charts
     new Chart(document.getElementById('quotationStatusChart'), {
         type:'doughnut',
