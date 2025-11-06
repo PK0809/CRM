@@ -1,4 +1,5 @@
 ﻿from django.contrib import admin
+from django.urls import path, include
 from django.urls import path, re_path
 from django.conf import settings
 from django.conf.urls.static import static
@@ -18,6 +19,8 @@ UserUpdateView = _crm_views.UserUpdateView
 urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
+    path('', include('crm.urls')),
+
 
     # Auth
     path('', views.user_login, name='login_redirect'),
@@ -28,11 +31,11 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
 
     # Users
-    path('users/create/', views.create_user, name='create_user'),
-    path('users/', views.user_list, name='user_list'),
-    path('users/<int:pk>/edit/', UserUpdateView.as_view(), name='edit_user'),
-    path('users/<int:user_id>/delete/', views.delete_user, name='user_delete'),
-    path('get-permissions/', views.get_permissions_by_role, name='get_permissions'),
+    path("users/", views.user_list, name="user_list"),
+    path("users/create/", views.create_user, name="create_user"),
+    path('users/<int:pk>/edit/', views.edit_user, name='edit_user'),
+    path('users/<int:pk>/delete/', views.user_delete, name='user_delete'),
+    path("get-permissions/", views.get_permissions_by_role, name="get_permissions"),
 
     # Clients
     path('client/', views.client_list, name='client'),
