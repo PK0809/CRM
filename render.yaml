@@ -6,10 +6,10 @@ services:
     startCommand: "gunicorn crmproject.wsgi:application"
     staticPublishPath: staticfiles
     envVars:
-      - key: DEBUG
-        value: "False"
-      - key: DJANGO_SETTINGS_MODULE
-        value: "crmproject.settings"
+      - key: USE_POSTGRES
+        value: "True"
+      - key: DATABASE_URL
+        value: postgresql://crm_db_0ndg_user:gkNhdiZFHxhjQYuCW3keOI35An8dXRev@dpg-d3g25eb3fgac73c3mrug-a/crm_db_0ndg_3v5b
       - key: SECRET_KEY
         value: "dy)#&kpi*)tgy=#%qu23ip7_xxk9)plw0fh7ltsv=31=u98lv!"  # Replace with your actual key
       - key: ALLOWED_HOSTS
