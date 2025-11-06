@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django_extensions",
+    'widget_tweaks',
     "crm",
 ]
 
@@ -121,3 +122,4 @@ USE_I18N = True
 USE_TZ = True
 
 DEBUG = True
+
