@@ -25,57 +25,16 @@ class User(AbstractUser):
         return f"{self.username} ({self.role})"
 
 
-# ====================================================
-#  USER PERMISSION MODEL
-# ====================================================
-class UserProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100, blank=True)
-    phone_number = models.CharField(max_length=15, blank=True)
-    role = models.CharField(max_length=50, default='User')
-    permissions = models.ManyToManyField('UserPermission', blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+from django.db import models
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.auth import get_user_model
 
-    def save(self, *args, **kwargs):
-        # Prevent infinite recursion by disabling signals during sync
-        from django.db.models.signals import post_save
-        from django.contrib.auth import get_user_model
-        from .signals import create_or_update_user_profile
+User = get_user_model()
 
-        post_save.disconnect(create_or_update_user_profile, sender=get_user_model())
-
-        super().save(*args, **kwargs)
-        self.sync_user_permissions()
-
-        # Reconnect signal after sync
-        post_save.connect(create_or_update_user_profile, sender=get_user_model())
-
-    def sync_user_permissions(self):
-        """Sync custom permissions with Django built-in system."""
-        self.user.user_permissions.clear()
-        if self.role == "User":
-            for perm in self.permissions.all():
-                # Optional: Only sync if codename exists
-                try:
-                    from django.contrib.auth.models import Permission
-                    django_perm = Permission.objects.filter(codename=perm.codename).first()
-                    if django_perm:
-                        self.user.user_permissions.add(django_perm)
-                except Exception:
-                    pass
-        # Don't call self.user.save() — it re-triggers the signal!
-        
-# ====================================================
-#  User Permission
-# ====================================================
 class UserPermission(models.Model):
-    """
-    Custom permission names for CRM features.
-    Example: 'can_add_client', 'can_view_invoice'
-    """
+    name = models.CharField(max_length=100, unique=True)
     codename = models.CharField(max_length=100, unique=True)
-    name = models.CharField(max_length=150)
 
     class Meta:
         verbose_name = "User Permission"
@@ -83,6 +42,48 @@ class UserPermission(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100, blank=True)
+    phone_number = models.CharField(max_length=15, blank=True)
+    role = models.CharField(max_length=50, default='User')
+    permissions = models.ManyToManyField(UserPermission, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        """Save profile and sync Django permissions."""
+        super().save(*args, **kwargs)
+        self.sync_user_permissions()
+
+    def sync_user_permissions(self):
+        """
+        Sync custom UserPermission entries with Django’s built-in auth_permission.
+        """
+        # Clear existing user permissions
+        self.user.user_permissions.clear()
+
+        content_type, _ = ContentType.objects.get_or_create(
+            app_label='crm', model='userprofile'
+        )
+
+        for perm in self.permissions.all():
+            # Create or get matching Django permission
+            django_perm, _ = Permission.objects.get_or_create(
+                codename=perm.codename,
+                name=perm.name,
+                content_type=content_type
+            )
+            self.user.user_permissions.add(django_perm)
+
+        self.user.save()
+
+    def __str__(self):
+        return self.user.username
+
 
 
 # ====================================================
