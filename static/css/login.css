@@ -1,61 +1,55 @@
-/* LOGIN FORM */
+﻿/* login.css */
 
-.login {
-    background: var(--darkened-bg);
-    height: auto;
-}
-
-.login #header {
-    height: auto;
-    padding: 15px 16px;
+body.login-background {
+    background-image: url("../images/background.jpg"); /* Replace with your image path */
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    height: 100vh;
+    margin: 0;
+    display: flex;
     justify-content: center;
+    align-items: center;
+    font-family: sans-serif;
 }
 
-.login #header h1 {
-    font-size: 1.125rem;
-    margin: 0;
+.login-box {
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 100px;
+    border-radius: 30px;
+    box-shadow: 0 0 23px rgba(0,0,0,0.3);
+    text-align: center;
+    width: 300px;
 }
 
-.login #header h1 a {
-    color: var(--header-link-color);
+.logo-img {
+    width: 350px;
+    margin-bottom: 20px;
 }
 
-.login #content {
-    padding: 20px;
-}
-
-.login #container {
-    background: var(--body-bg);
-    border: 1px solid var(--hairline-color);
-    border-radius: 4px;
-    overflow: hidden;
-    width: 28em;
-    min-width: 300px;
-    margin: 100px auto;
-    height: auto;
-}
-
-.login .form-row {
-    padding: 4px 0;
-}
-
-.login .form-row label {
-    display: block;
-    line-height: 2em;
-}
-
-.login .form-row #id_username, .login .form-row #id_password {
-    padding: 8px;
+input[type="text"],
+input[type="password"] {
     width: 100%;
-    box-sizing: border-box;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 10px;
+    border: 3px solid #ccc;
 }
 
-.login .submit-row {
-    padding: 1em 0 0 0;
-    margin: 0;
-    text-align: center;
+button {
+    width: 100%;
+    padding: 14px; /* Increased padding for height */
+    background-color: #4285F4;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 20px; /* Increased font size */
+    font-weight: bold;
+    transition: background-color 0.3s ease;
 }
 
-.login .password-reset-link {
-    text-align: center;
-}
+    button:hover {
+        background-color: #3367d6;
+    }
+
