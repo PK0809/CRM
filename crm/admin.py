@@ -105,31 +105,90 @@ class ReportAdmin(admin.ModelAdmin):
     list_filter = ("report_type", "created_at")
     ordering = ("-created_at",)
 
-# =====================================
-# User Management
-# =====================================
+# admin.py
+from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from .models import User, UserProfile, UserPermission
+
+
+# ====================================================
+# Inline: UserProfile within User
+# ====================================================
+class UserProfileInline(admin.StackedInline):
+    """
+    Display and edit user profile inline under the User model.
+    """
+    model = UserProfile
+    can_delete = False
+    verbose_name_plural = "Profile"
+    fk_name = "user"
+    fields = ("name", "email", "phone_number", "role", "permissions", "created_at")
+    readonly_fields = ("created_at",)
+    filter_horizontal = ("permissions",)
+
+
+# ====================================================
+# User Admin
+# ====================================================
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    """
+    Custom admin for User with inline profile.
+    """
+    inlines = [UserProfileInline]
+
+    list_display = ("username", "email", "role", "is_staff", "is_superuser", "last_login")
+    list_filter = ("role", "is_staff", "is_superuser", "is_active")
+    search_fields = ("username", "email")
+    ordering = ("-date_joined",)
+
+    fieldsets = (
+        (None, {"fields": ("username", "password")}),
+        ("Personal Info", {"fields": ("first_name", "last_name", "email", "mobile")}),
+        ("Role & Permissions", {"fields": ("role", "is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        ("Important Dates", {"fields": ("last_login", "date_joined")}),
+    )
+
+    add_fieldsets = (
+        (None, {
+            "classes": ("wide",),
+            "fields": ("username", "email", "password1", "password2", "role", "is_staff", "is_superuser"),
+        }),
+    )
+
+    def get_inline_instances(self, request, obj=None):
+        """
+        Only show inline when editing an existing user.
+        """
+        if not obj:
+            return []
+        return super().get_inline_instances(request, obj)
+
+
+# ====================================================
+# User Profile Admin
+# ====================================================
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    # Fields used in code: user (FK), role; created_at may or may not exist
-    list_display = ("user", "role")
-    search_fields = ("user__username", "user__email", "role")
-    list_filter = ("role",)
-    ordering = ("-id",)
+    """
+    Admin for direct access to User Profiles (optional).
+    """
+    list_display = ("user", "name", "role", "phone_number", "created_at")
+    search_fields = ("user__username", "user__email", "name")
+    list_filter = ("role", "created_at")
+    ordering = ("-created_at",)
+    filter_horizontal = ("permissions",)
+    readonly_fields = ("created_at",)
 
+
+# ====================================================
+# User Permission Admin
+# ====================================================
 @admin.register(UserPermission)
 class UserPermissionAdmin(admin.ModelAdmin):
-    # Your model exposes 'name' (permission name) and relation to UserProfile via userprofile?
-    # Use callables to show related user; avoid non-existent fields like can_edit/can_delete
-    list_display = ("id", "get_user", "name")
-    search_fields = ("name", "userprofile__user__username", "userprofile__user__email")
-    list_filter = ("name",)
-    ordering = ("-id",)
-
-    def get_user(self, obj):
-        # Adjust relation if different; this matches usage in views where UserPermission
-        # is linked to UserProfile, which links to auth User
-        up = getattr(obj, "userprofile", None)
-        if up and getattr(up, "user", None):
-            return up.user.username
-        return ""
-    get_user.short_description = "User"
+    """
+    Simple list of CRM-level permissions.
+    """
+    list_display = ("id", "name")
+    search_fields = ("name",)
+    ordering = ("name",)
