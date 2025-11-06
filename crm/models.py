@@ -1,16 +1,19 @@
 ﻿from django.db import models
-from django.contrib.auth.models import AbstractUser
-from django.conf import settings
+from django.contrib.auth.models import AbstractUser, Permission
 from django.utils import timezone
 from datetime import timedelta
+from django.conf import settings
 from decimal import Decimal
 from num2words import num2words
 
 
 # ====================================================
-#  Custom User Model
+#  CUSTOM USER MODEL
 # ====================================================
 class User(AbstractUser):
+    """
+    Extends Django's default User with role and mobile fields.
+    """
     ROLE_CHOICES = [
         ('Admin', 'Admin'),
         ('User', 'User'),
@@ -19,34 +22,67 @@ class User(AbstractUser):
     mobile = models.CharField(max_length=15, blank=True, null=True)
 
     def __str__(self):
-        return self.username
+        return f"{self.username} ({self.role})"
 
 
+# ====================================================
+#  USER PERMISSION MODEL
+# ====================================================
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100, blank=True)
+    phone_number = models.CharField(max_length=15, blank=True)
+    role = models.CharField(max_length=50, default='User')
+    permissions = models.ManyToManyField('UserPermission', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # Prevent infinite recursion by disabling signals during sync
+        from django.db.models.signals import post_save
+        from django.contrib.auth import get_user_model
+        from .signals import create_or_update_user_profile
+
+        post_save.disconnect(create_or_update_user_profile, sender=get_user_model())
+
+        super().save(*args, **kwargs)
+        self.sync_user_permissions()
+
+        # Reconnect signal after sync
+        post_save.connect(create_or_update_user_profile, sender=get_user_model())
+
+    def sync_user_permissions(self):
+        """Sync custom permissions with Django built-in system."""
+        self.user.user_permissions.clear()
+        if self.role == "User":
+            for perm in self.permissions.all():
+                # Optional: Only sync if codename exists
+                try:
+                    from django.contrib.auth.models import Permission
+                    django_perm = Permission.objects.filter(codename=perm.codename).first()
+                    if django_perm:
+                        self.user.user_permissions.add(django_perm)
+                except Exception:
+                    pass
+        # Don't call self.user.save() — it re-triggers the signal!
+        
 # ====================================================
 #  User Permission
 # ====================================================
 class UserPermission(models.Model):
-    # Permission name used across the app
-    name = models.CharField(max_length=100, unique=True)
+    """
+    Custom permission names for CRM features.
+    Example: 'can_add_client', 'can_view_invoice'
+    """
+    codename = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=150)
+
+    class Meta:
+        verbose_name = "User Permission"
+        verbose_name_plural = "User Permissions"
 
     def __str__(self):
         return self.name
-
-
-# ====================================================
-#  User Profile
-# ====================================================
-class UserProfile(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100)
-    email = models.EmailField()
-    phone_number = models.CharField(max_length=15, blank=True)
-    role = models.CharField(max_length=20, choices=User.ROLE_CHOICES, default='User')
-    permissions = models.ManyToManyField(UserPermission, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.user.username} - {self.role}"
 
 
 # ====================================================

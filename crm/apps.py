@@ -1,9 +1,9 @@
-﻿from django.apps import AppConfig
+﻿# crm/apps.py
+from django.apps import AppConfig
 
 class CrmConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'crm'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "crm"
 
     def ready(self):
-        import crm.signals  # ✅ keep this line
-
+        from . import signals  # noqa

@@ -14,6 +14,17 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_http_methods
 from django.template.loader import render_to_string
 from django.conf import settings
+from django.views.decorators.csrf import csrf_protect
+from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_protect
+from django.contrib import messages
+from django.shortcuts import render, redirect
+
+from .models import UserProfile
+
 
 from decimal import Decimal, InvalidOperation
 from datetime import timedelta
@@ -29,195 +40,234 @@ from .utils import inr_currency_words, generate_invoice_number
 
 User = get_user_model()
 
+from django.contrib.auth import authenticate, login
+
 def user_login(request):
     if request.method == "POST":
-        username = request.POST.get("username")
-        password = request.POST.get("password")
+        username = request.POST['username']
+        password = request.POST['password']
         user = authenticate(request, username=username, password=password)
         if user:
             login(request, user)
+            request.user.refresh_from_db()  # ✅ Refresh permissions
             return redirect('dashboard')
         else:
-            messages.error(request, "Invalid credentials.")
-    return render(request, 'login.html')
+            messages.error(request, "Invalid username or password.")
+    return render(request, 'auth/login.html')
 
 def logout_view(request):
     logout(request)
     return redirect('login')
 
 
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import Permission
-from django.shortcuts import render, redirect
-from django.db import transaction, IntegrityError
+# ---------------------------------------------------
+# User Management Views
+# ---------------------------------------------------
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.contrib.auth import logout
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.urls import reverse_lazy
+from django.views.generic import UpdateView, ListView, DeleteView
+from django.http import JsonResponse
+from django.contrib.auth import update_session_auth_hash 
+
+from .forms import UserForm
+from .models import User, UserProfile, UserPermission
+
+
+# ---------------------------------------------------
+# Helper checks
+# ---------------------------------------------------
+def is_admin(user):
+    return user.is_authenticated and user.role == "Admin"
+
+
+# ---------------------------------------------------
+# Create User
+# ---------------------------------------------------
+@login_required(login_url='login')
+@csrf_protect
+def create_user(request):
+    if request.method == "POST":
+        username = request.POST.get("username")
+        email = request.POST.get("email")
+        password = request.POST.get("password")
+        confirm_password = request.POST.get("confirm_password")
+        role = request.POST.get("role")
+        phone_number = request.POST.get("phone_number")
+        permissions = request.POST.getlist("permissions")
+
+        if password != confirm_password:
+            messages.error(request, "Passwords do not match.")
+            return redirect("create_user")
+
+        if User.objects.filter(username=username).exists():
+            messages.error(request, "Username already exists.")
+            return redirect("create_user")
+
+        user = User.objects.create_user(username=username, email=email, password=password)
+        user.is_staff = (role == "Admin")
+        user.save()
+
+        # ✅ Assign permissions safely
+        if permissions:
+            codenames = [p.split('.')[-1] for p in permissions]
+            perms = Permission.objects.filter(codename__in=codenames)
+            user.user_permissions.set(perms)
+
+        # ✅ Safe profile creation
+        UserProfile.objects.update_or_create(
+            user=user,
+            defaults={
+                "name": username,
+                "phone_number": phone_number,
+                "role": role,
+            }
+        )
+
+        messages.success(request, f"User '{username}' created successfully!")
+        return redirect("user_list")
+
+    permissions = Permission.objects.filter(content_type__app_label='crm')
+    return render(request, "users/add_user.html", {"permissions": permissions})
+
+
+
+# ---------------------------------------------------
+# User List
+# ---------------------------------------------------
+@login_required(login_url='login')
+def user_list(request):
+    """Display all user profiles (admin only)."""
+    users = UserProfile.objects.select_related("user").all().order_by("-id")
+    return render(request, "users/user_list.html", {"users": users})
+
+    
+@login_required(login_url='login')
+def edit_user(request, pk):
+    user = get_object_or_404(User, pk=pk)
+
+    if request.method == 'POST':
+        form = UserForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+
+            # ✅ Important: keep the user logged in after password change
+            update_session_auth_hash(request, user)
+
+            messages.success(request, f"✅ User '{user.username}' updated successfully.")
+            return redirect('user_list')
+        else:
+            messages.error(request, "⚠️ Please correct the errors below.")
+    else:
+        form = UserForm(instance=user)
+
+    return render(request, 'users/user_form.html', {'form': form, 'user': user})
+
+
+
+from django.contrib import messages
+from django.shortcuts import redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth import get_user_model
 from .models import UserProfile
 
 User = get_user_model()
 
-def _permissions_from_codes(codes):
-    out = []
-    for code in codes:
-        if '.' not in code:
-            continue
-        app_label, codename = code.split('.', 1)
-        try:
-            out.append(Permission.objects.get(content_type__app_label=app_label, codename=codename))
-        except Permission.DoesNotExist:
-            continue
-    return out
 
-@login_required
-@transaction.atomic
-def create_user(request):
-    if request.method == 'POST':
-        username = (request.POST.get('username') or '').strip()
-        email = (request.POST.get('email') or '').strip()
-        password = request.POST.get('password') or ''
-        confirm_password = request.POST.get('confirm_password') or ''
-        role = request.POST.get('role') or 'User'
-        phone_number = (request.POST.get('phone_number') or '').strip()
-        selected_permissions = request.POST.getlist('permissions')
+def is_admin(user):
+    """Allow only admins or superusers to delete"""
+    return user.is_superuser or (hasattr(user, 'userprofile') and user.userprofile.role == 'Admin')
 
-        # Basic validation
-        if not username or not password or not confirm_password:
-            messages.error(request, "All required fields must be filled.")
-            return redirect('create_user')
-        if password != confirm_password:
-            messages.error(request, "Passwords do not match.")
-            return redirect('create_user')
-        if User.objects.filter(username=username).exists():
-            messages.error(request, "Username already exists.")
-            return redirect('create_user')
-        if email and User.objects.filter(email=email).exists():
-            messages.error(request, "Email already exists.")
-            return redirect('create_user')
 
-        # Create user + profile
-        try:
-            user = User.objects.create_user(username=username, email=email, password=password)
-            user.role = role
-            user.is_staff = (role == 'Admin')
-            user.is_superuser = False
-            if hasattr(user, 'mobile'):
-                user.mobile = phone_number
-            user.save()
-
-            profile, _ = UserProfile.objects.get_or_create(user=user)
-            profile.name = username
-            profile.phone_number = phone_number
-            if hasattr(profile, 'role'):
-                profile.role = role
-            profile.save()
-
-            if role == 'User':
-                user.user_permissions.set(_permissions_from_codes(selected_permissions))
-            else:
-                user.user_permissions.clear()
-
-            messages.success(request, f"{role} '{username}' created successfully.")
-            return redirect('user_list')
-        except IntegrityError:
-            messages.error(request, "Database error. Try again.")
-            return redirect('create_user')
-
-    # GET branch: always build permissions and render
-    permissions = Permission.objects.filter(content_type__app_label='crm').order_by('name')
-    return render(request, 'users/add_user.html', {'permissions': permissions})
-
-@login_required
-def user_list(request):
-    users = UserProfile.objects.select_related('user').all()
-    return render(request, "users/user_list.html", {'users': users})
-
-@login_required
-def edit_user(request, user_id):
-    user = get_object_or_404(User, pk=user_id)
-
-    if user.role == 'Admin':
-        permissions = Permission.objects.all()
-    else:
-        permissions = Permission.objects.exclude(codename__in=['admin_access', 'purchase_access'])
+@login_required(login_url='login')
+@user_passes_test(is_admin, login_url='login')
+@csrf_protect
+def user_delete(request, pk):
+    user = get_object_or_404(User, pk=pk)
 
     if request.method == 'POST':
-        selected_permissions = request.POST.getlist('permissions')
-        perms_to_set = []
-        for perm_str in selected_permissions:
-            try:
-                app_label, codename = perm_str.split('.')
-                perm = Permission.objects.get(
-                    content_type__app_label=app_label, codename=codename
-                )
-                perms_to_set.append(perm)
-            except Permission.DoesNotExist:
-                messages.warning(request, f"Permission '{perm_str}' not found.")
-        user.user_permissions.set(perms_to_set)
-        if hasattr(user, 'userprofile'):
-            user.userprofile.permissions.set(perms_to_set)
-        user.save()
-        messages.success(request, 'User updated successfully.')
+        username = user.username
+        user.delete()
+        messages.success(request, f"User '{username}' deleted successfully.")
         return redirect('user_list')
 
-    return render(request, 'users/edit_user.html', {'user_obj': user, 'permissions': permissions})
-
-@login_required
-def delete_user(request, user_id):
-    user_profile = get_object_or_404(UserProfile, id=user_id)
-    user_profile.user.delete()
-    messages.success(request, "User deleted successfully.")
-    return redirect('user_list')
+    return render(request, 'users/user_delete.html', {'user': user})
 
 
+
+# ---------------------------------------------------
+# Get Permissions by Role (AJAX)
+# ---------------------------------------------------
 @login_required
 def get_permissions_by_role(request):
-    role = (request.GET.get('role') or '').strip()
-    if not role:
-        return JsonResponse({'error': 'role is required'}, status=400)
-
-    # Show only CRM app permissions to keep the UI focused.
-    if role == 'Admin':
-        qs = Permission.objects.filter(
-            content_type__app_label='crm'
-        ).order_by('content_type__app_label', 'name')
-    elif role == 'User':
-        qs = Permission.objects.filter(
-            content_type__app_label='crm',
-            codename__in=[
-                'view_client',
-                'add_client',   # Add New Client
-                'view_lead',
-                'view_estimation',
-                'view_invoice',
-                'view_report',
-            ],
-        ).order_by('content_type__app_label', 'name')
-    else:
-        qs = Permission.objects.none()
-
-    permission_list = [
-        {
-            'id': p.id,
-            'name': f"{p.content_type.app_label} | {p.name}",
-            'code': f"{p.content_type.app_label}.{p.codename}",
-        }
-        for p in qs
-    ]
-    return JsonResponse({'permissions': permission_list})
+    """AJAX helper: return permissions for selected role."""
+    role = request.GET.get("role")
+    permissions = list(UserPermission.objects.values("id", "name").order_by("name"))
+    if role == "Admin":
+        permissions = []  # Admins have implicit full rights
+    return JsonResponse({"permissions": permissions})
 
 
-class UserUpdateView(UpdateView):
+# ---------------------------------------------------
+# Logout View
+# ---------------------------------------------------
+@login_required
+def logout_view(request):
+    logout(request)
+    messages.info(request, "You have been logged out.")
+    return redirect("login")
+
+from django.views.generic import UpdateView
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from .forms import UserForm
+
+User = get_user_model()
+
+class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = User
     form_class = UserForm
     template_name = 'users/user_form.html'
     success_url = reverse_lazy('user_list')
 
+    def test_func(self):
+        """Allow only Admins and Superusers to edit users"""
+        user = self.request.user
+        return user.is_superuser or (hasattr(user, 'userprofile') and user.userprofile.role == 'Admin')
+
+    def handle_no_permission(self):
+        messages.error(self.request, "You don’t have permission to edit users.")
+        return redirect('user_list')
+
+    def form_valid(self, form):
+        """Optional: display success message"""
+        messages.success(self.request, f"User '{form.instance.username}' updated successfully.")
+        return super().form_valid(form)
+
+
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, get_object_or_404, redirect
+from django.db.models import Sum, Count, Q
+from .models import Invoice, PaymentLog, Lead, Estimation, Client, UserPermission
+
+
 @login_required
 def dashboard(request):
+    """Displays the CRM dashboard with key metrics and permission-based menu."""
     user = request.user
+
+    # --- USER PERMISSIONS ---
     user_perm_names = set(
         UserPermission.objects.filter(userprofile__user=user).values_list("name", flat=True)
     )
+
+    # --- BASE CONTEXT ---
     context = {
         "can_view_client": "can_view_client" in user_perm_names,
         "can_add_client": "can_add_client" in user_perm_names,
@@ -240,48 +290,101 @@ def dashboard(request):
             ],
         },
     }
-    context["total_invoiced"] = Invoice.objects.aggregate(total=Sum('total_value'))['total'] or 0
+
+    # --- AGGREGATED METRICS ---
+    context["total_invoiced"] = Invoice.objects.aggregate(
+        total=Sum("total_value")
+    )["total"] or 0
+
     context["paid"] = PaymentLog.objects.filter(
         Q(status="Paid") | Q(status="Partial Paid")
     ).aggregate(total=Sum("amount_paid"))["total"] or 0
-    context["balance_due"] = Invoice.objects.aggregate(total=Sum("balance_due"))["total"] or 0
+
+    context["balance_due"] = Invoice.objects.aggregate(
+        total=Sum("balance_due")
+    )["total"] or 0
+
+    # --- LEADS & INVOICES ---
     total_leads = Lead.objects.count()
+    total_quotations = Estimation.objects.count()
     total_invoices = Invoice.objects.count()
+
     context["total_leads"] = total_leads
-    context["total_quotations"] = Estimation.objects.count()
+    context["total_quotations"] = total_quotations
     context["total_invoices"] = total_invoices
-    context["conversion_rate"] = round((total_invoices / total_leads) * 100, 2) if total_leads else 0
-    context["quotation_status"] = Estimation.objects.values("status").annotate(count=Count("id")).order_by("status")
-    context["invoice_status"] = Invoice.objects.values("status").annotate(count=Count("id")).order_by("status")
-    context["top_clients"] = Client.objects.annotate(total_leads=Count("lead")).order_by("-total_leads")[:4]
+    context["conversion_rate"] = (
+        round((total_invoices / total_leads) * 100, 2) if total_leads else 0
+    )
+
+    # --- STATUS BREAKDOWNS ---
+    context["quotation_status"] = (
+        Estimation.objects.values("status")
+        .annotate(count=Count("id"))
+        .order_by("status")
+    )
+
+    context["invoice_status"] = (
+        Invoice.objects.values("status")
+        .annotate(count=Count("id"))
+        .order_by("status")
+    )
+
+    # --- TOP CLIENTS ---
+    context["top_clients"] = (
+        Client.objects.annotate(total_leads=Count("lead"))
+        .order_by("-total_leads")[:4]
+    )
+
+    # --- FILTER OPTIONS ---
     context["filter_options"] = [
-        ("This Month", "this_month"), ("This Quarter", "this_quarter"), ("This Year", "this_year"),
-        ("Previous Month", "previous_month"), ("Previous Quarter", "previous_quarter"),
-        ("Previous Year", "previous_year"), ("Custom", "custom"),
+        ("This Month", "this_month"),
+        ("This Quarter", "this_quarter"),
+        ("This Year", "this_year"),
+        ("Previous Month", "previous_month"),
+        ("Previous Quarter", "previous_quarter"),
+        ("Previous Year", "previous_year"),
+        ("Custom", "custom"),
     ]
     context["selected_filter"] = request.GET.get("date_filter", "this_month")
+
+    # --- USER NAME ---
     context["user_name"] = user.first_name or user.username
+
     return render(request, "dashboard.html", context)
+
 
 @login_required
 def confirm_payment(request, payment_id):
+    """Confirm a payment and update invoice status accordingly."""
     payment = get_object_or_404(PaymentLog, id=payment_id)
     invoice = payment.invoice
-    total_paid = PaymentLog.objects.filter(
-        invoice=invoice, status__in=["Paid", "Partial Paid"]
-    ).aggregate(total=Sum("amount_paid"))["total"] or 0
+
+    # Total paid for this invoice
+    total_paid = (
+        PaymentLog.objects.filter(
+            invoice=invoice, status__in=["Paid", "Partial Paid"]
+        ).aggregate(total=Sum("amount_paid"))["total"]
+        or 0
+    )
+
+    # --- UPDATE INVOICE STATUS ---
     if total_paid >= invoice.total_value:
         invoice.status = "Paid"
     elif total_paid > 0:
         invoice.status = "Partial Paid"
     else:
         invoice.status = "Unpaid"
+
     invoice.paid_amount = total_paid
     invoice.balance_due = invoice.total_value - total_paid
     invoice.save()
+
+    # --- UPDATE PAYMENT LOG ---
     payment.status = invoice.status
     payment.save()
+
     return redirect("payment_list")
+
 
 
 @login_required
