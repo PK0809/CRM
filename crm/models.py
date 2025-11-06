@@ -1,19 +1,20 @@
-﻿from django.db import models
-from django.contrib.auth.models import AbstractUser, Permission
-from django.utils import timezone
-from datetime import timedelta
+from django.db import models
 from django.conf import settings
+from django.utils import timezone
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from decimal import Decimal
 from num2words import num2words
+from datetime import timedelta
 
+# ----------------------------------------------------
+# Custom User (assumes you registered AUTH_USER_MODEL elsewhere)
+# If you have a custom User model in this file, keep it here.
+# Otherwise your project likely sets AUTH_USER_MODEL to "crm.User".
+# ----------------------------------------------------
+from django.contrib.auth.models import AbstractUser
 
-# ====================================================
-#  CUSTOM USER MODEL
-# ====================================================
 class User(AbstractUser):
-    """
-    Extends Django's default User with role and mobile fields.
-    """
     ROLE_CHOICES = [
         ('Admin', 'Admin'),
         ('User', 'User'),
@@ -25,13 +26,9 @@ class User(AbstractUser):
         return f"{self.username} ({self.role})"
 
 
-from django.db import models
-from django.contrib.auth.models import Permission
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
-
+# ----------------------------------------------------
+# UserPermission: simple store of named permissions with unique codename
+# ----------------------------------------------------
 class UserPermission(models.Model):
     name = models.CharField(max_length=100, unique=True)
     codename = models.CharField(max_length=100, unique=True)
@@ -44,8 +41,12 @@ class UserPermission(models.Model):
         return self.name
 
 
+# ----------------------------------------------------
+# UserProfile: one-to-one with user, many-to-many to UserPermission
+# Important: reference user via settings.AUTH_USER_MODEL (string) to avoid import ordering issues
+# ----------------------------------------------------
 class UserProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     name = models.CharField(max_length=100, blank=True)
     phone_number = models.CharField(max_length=15, blank=True)
     role = models.CharField(max_length=50, default='User')
@@ -55,34 +56,42 @@ class UserProfile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
-        """Save profile and sync Django permissions."""
+        """
+        Save profile but DO NOT call user.save() here (that can trigger signals
+        and cause recursion). Instead, sync only the user's permissions collection.
+        """
         super().save(*args, **kwargs)
         self.sync_user_permissions()
 
     def sync_user_permissions(self):
         """
-        Sync custom UserPermission entries with Django’s built-in auth_permission.
+        Sync custom UserPermission entries to Django's auth Permission objects
+        and attach them to the related user without repeatedly calling user.save()
+        (we'll only modify the user's user_permissions relation).
         """
-        # Clear existing user permissions
-        self.user.user_permissions.clear()
+        # Build / ensure a content type to attach custom permissions to.
+        content_type = ContentType.objects.get_for_model(UserProfile)
 
-        content_type, _ = ContentType.objects.get_or_create(
-            app_label='crm', model='userprofile'
-        )
-
+        # Build a list of Django Permission objects to assign
+        django_permissions = []
         for perm in self.permissions.all():
-            # Create or get matching Django permission
-            django_perm, _ = Permission.objects.get_or_create(
+            django_perm, _created = Permission.objects.get_or_create(
                 codename=perm.codename,
-                name=perm.name,
-                content_type=content_type
+                defaults={
+                    "name": perm.name,
+                    "content_type": content_type,
+                }
             )
-            self.user.user_permissions.add(django_perm)
+            # If permission existed but content_type/name differ, ensure defaults applied
+            # (get_or_create won't overwrite existing rows; that's deliberate)
+            django_permissions.append(django_perm)
 
-        self.user.save()
+        # Replace user's direct permissions with the computed list
+        # Use set() via queryset to avoid triggering user.save() and signals
+        self.user.user_permissions.set(django_permissions)
 
     def __str__(self):
-        return self.user.username
+        return str(self.user)
 
 
 
