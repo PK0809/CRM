@@ -1,20 +1,19 @@
-from django.db import models
-from django.conf import settings
+﻿from django.db import models
+from django.contrib.auth.models import AbstractUser, Permission
 from django.utils import timezone
-from django.contrib.auth.models import Permission
-from django.contrib.contenttypes.models import ContentType
+from datetime import timedelta
+from django.conf import settings
 from decimal import Decimal
 from num2words import num2words
-from datetime import timedelta
 
-# ----------------------------------------------------
-# Custom User (assumes you registered AUTH_USER_MODEL elsewhere)
-# If you have a custom User model in this file, keep it here.
-# Otherwise your project likely sets AUTH_USER_MODEL to "crm.User".
-# ----------------------------------------------------
-from django.contrib.auth.models import AbstractUser
 
+# ====================================================
+#  CUSTOM USER MODEL
+# ====================================================
 class User(AbstractUser):
+    """
+    Extends Django's default User with role and mobile fields.
+    """
     ROLE_CHOICES = [
         ('Admin', 'Admin'),
         ('User', 'User'),
@@ -26,12 +25,57 @@ class User(AbstractUser):
         return f"{self.username} ({self.role})"
 
 
-# ----------------------------------------------------
-# UserPermission: simple store of named permissions with unique codename
-# ----------------------------------------------------
+# ====================================================
+#  USER PERMISSION MODEL
+# ====================================================
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100, blank=True)
+    phone_number = models.CharField(max_length=15, blank=True)
+    role = models.CharField(max_length=50, default='User')
+    permissions = models.ManyToManyField('UserPermission', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # Prevent infinite recursion by disabling signals during sync
+        from django.db.models.signals import post_save
+        from django.contrib.auth import get_user_model
+        from .signals import create_or_update_user_profile
+
+        post_save.disconnect(create_or_update_user_profile, sender=get_user_model())
+
+        super().save(*args, **kwargs)
+        self.sync_user_permissions()
+
+        # Reconnect signal after sync
+        post_save.connect(create_or_update_user_profile, sender=get_user_model())
+
+    def sync_user_permissions(self):
+        """Sync custom permissions with Django built-in system."""
+        self.user.user_permissions.clear()
+        if self.role == "User":
+            for perm in self.permissions.all():
+                # Optional: Only sync if codename exists
+                try:
+                    from django.contrib.auth.models import Permission
+                    django_perm = Permission.objects.filter(codename=perm.codename).first()
+                    if django_perm:
+                        self.user.user_permissions.add(django_perm)
+                except Exception:
+                    pass
+        # Don't call self.user.save() — it re-triggers the signal!
+        
+# ====================================================
+#  User Permission
+# ====================================================
 class UserPermission(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    """
+    Custom permission names for CRM features.
+    Example: 'can_add_client', 'can_view_invoice'
+    """
     codename = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=150)
 
     class Meta:
         verbose_name = "User Permission"
@@ -39,60 +83,6 @@ class UserPermission(models.Model):
 
     def __str__(self):
         return self.name
-
-
-# ----------------------------------------------------
-# UserProfile: one-to-one with user, many-to-many to UserPermission
-# Important: reference user via settings.AUTH_USER_MODEL (string) to avoid import ordering issues
-# ----------------------------------------------------
-class UserProfile(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100, blank=True)
-    phone_number = models.CharField(max_length=15, blank=True)
-    role = models.CharField(max_length=50, default='User')
-    permissions = models.ManyToManyField(UserPermission, blank=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def save(self, *args, **kwargs):
-        """
-        Save profile but DO NOT call user.save() here (that can trigger signals
-        and cause recursion). Instead, sync only the user's permissions collection.
-        """
-        super().save(*args, **kwargs)
-        self.sync_user_permissions()
-
-    def sync_user_permissions(self):
-        """
-        Sync custom UserPermission entries to Django's auth Permission objects
-        and attach them to the related user without repeatedly calling user.save()
-        (we'll only modify the user's user_permissions relation).
-        """
-        # Build / ensure a content type to attach custom permissions to.
-        content_type = ContentType.objects.get_for_model(UserProfile)
-
-        # Build a list of Django Permission objects to assign
-        django_permissions = []
-        for perm in self.permissions.all():
-            django_perm, _created = Permission.objects.get_or_create(
-                codename=perm.codename,
-                defaults={
-                    "name": perm.name,
-                    "content_type": content_type,
-                }
-            )
-            # If permission existed but content_type/name differ, ensure defaults applied
-            # (get_or_create won't overwrite existing rows; that's deliberate)
-            django_permissions.append(django_perm)
-
-        # Replace user's direct permissions with the computed list
-        # Use set() via queryset to avoid triggering user.save() and signals
-        self.user.user_permissions.set(django_permissions)
-
-    def __str__(self):
-        return str(self.user)
-
 
 
 # ====================================================
@@ -127,14 +117,24 @@ class Branch(models.Model):
 #  Lead
 # ====================================================
 def generate_lead_no():
-    last_lead = Lead.objects.order_by('id').last()
+    """
+    Generate the next sequential Lead number in the format #0001, #0002, etc.
+    Ensures numbering continues even if previous lead_no values are missing or malformed.
+    """
+    from .models import Lead  # avoid circular import
+
+    last_lead = Lead.objects.order_by('-id').first()
     number = 1
+
     if last_lead and last_lead.lead_no:
-        try:
-            number = int(last_lead.lead_no.replace('#', '')) + 1
-        except ValueError:
+        lead_no = str(last_lead.lead_no).strip().replace('#', '')
+        if lead_no.isdigit():
+            number = int(lead_no) + 1
+        else:
             number = last_lead.id + 1
+
     return f"#{number:04d}"
+
 
 
 class Lead(models.Model):
@@ -178,9 +178,9 @@ class Estimation(models.Model):
         ('Invoiced', 'Invoiced'),
     ]
 
-    quote_no = models.CharField(max_length=100, unique=True)
+    quote_no = models.CharField(max_length=100, unique=True, blank=True)
     quote_date = models.DateField(default=timezone.now)
-    lead_no = models.ForeignKey(Lead, on_delete=models.CASCADE, null=True, blank=True)
+    lead_no = models.ForeignKey('Lead', on_delete=models.CASCADE, null=True, blank=True)
     company_name = models.ForeignKey(Client, on_delete=models.CASCADE)
     validity_days = models.PositiveIntegerField(default=0)
     gst_no = models.CharField(max_length=30, blank=True, null=True)
@@ -203,6 +203,43 @@ class Estimation(models.Model):
     follow_up_remarks = models.TextField(null=True, blank=True)
     lost_reason = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
+
+    def save(self, *args, **kwargs):
+        """
+        Assigns Estimation number logic:
+        - If linked to a Lead → reuse that Lead's number.
+        - Otherwise → generate next sequential number (#0001, #0002, etc.).
+        """
+        from .models import Lead  # avoid circular import
+
+        if not self.quote_no:
+            if self.lead_no and self.lead_no.lead_no:
+                # ✅ Use same number as Lead
+                self.quote_no = self.lead_no.lead_no
+            else:
+                # ✅ Generate next available sequential number
+                last_lead = Lead.objects.order_by('-id').first()
+                last_est = Estimation.objects.order_by('-id').first()
+
+                lead_num = 0
+                est_num = 0
+
+                if last_lead and last_lead.lead_no:
+                    try:
+                        lead_num = int(str(last_lead.lead_no).replace('#', ''))
+                    except ValueError:
+                        lead_num = last_lead.id
+
+                if last_est and last_est.quote_no:
+                    try:
+                        est_num = int(str(last_est.quote_no).replace('#', ''))
+                    except ValueError:
+                        est_num = last_est.id
+
+                next_number = max(lead_num, est_num) + 1
+                self.quote_no = f"#{next_number:04d}"
+
+        super().save(*args, **kwargs)
 
     def amount_in_words(self):
         return num2words(self.total, to='currency', lang='en_IN').title() + ' Only'

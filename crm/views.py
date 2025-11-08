@@ -993,43 +993,82 @@ class QuotationPDFView(View):
         response['Content-Disposition'] = f'inline; filename=Quotation_{estimation.quote_no}.pdf'
         return response
     
-def estimation_view(request):
-    sort = request.GET.get('sort', 'quote_date')
-    estimations = Estimation.objects.all().order_by('company_name' if sort == 'company' else '-quote_date')
-    query = request.GET.get('q')
-    if query:
-        estimations = estimations.filter(quote_no__icontains=query)
-    return render(request, 'estimation.html', {'estimations': estimations, 'query': query, 'current_sort': sort})
-
 import logging
 from decimal import Decimal
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.timezone import localdate
 from django.core.paginator import Paginator
+from django.db.models import Q
 
 from .models import Estimation, EstimationItem, Client, Lead, TermsAndConditions
 from .forms import EstimationForm
 
 logger = logging.getLogger(__name__)
 
+
+# ====================================================
+# Helper Function
+# ====================================================
 def _d(val, default='0.00'):
+    """Safely convert value to Decimal."""
     try:
         return Decimal(val or default)
     except Exception:
         return Decimal(default)
 
+
+# ====================================================
+# Estimation View (List + Search + Sort)
+# ====================================================
+def estimation_view(request):
+    """
+    Displays list of estimations with optional sorting and search.
+    """
+    sort = request.GET.get('sort', 'quote_date')
+    query = request.GET.get('q', '')
+
+    # Sorting logic
+    if sort == 'company':
+        order_field = 'company_name__company_name'
+    else:
+        order_field = '-quote_date'
+
+    estimations = Estimation.objects.all().order_by(order_field)
+
+    # Search logic
+    if query:
+        estimations = estimations.filter(
+            Q(quote_no__icontains=query) |
+            Q(company_name__company_name__icontains=query)
+        )
+
+    # Pagination
+    paginator = Paginator(estimations, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'Estimation_list.html', {
+        'page_obj': page_obj,
+        'query': query,
+        'current_sort': sort,
+    })
+
+
+# ====================================================
+# Edit Estimation
+# ====================================================
 def edit_estimation(request, pk):
+    """
+    Edit an existing estimation and its related items.
+    """
     estimation = get_object_or_404(Estimation, pk=pk)
     clients = Client.objects.all()
     items = EstimationItem.objects.filter(estimation=estimation).order_by('id')
 
     terms_obj = TermsAndConditions.objects.order_by('-id').first()
-    default_terms = terms_obj.content if terms_obj else (estimation.terms_conditions or "")
+    default_terms = terms_obj.content if terms_obj else estimation.terms_conditions or ""
 
-    # Load leads for the current company
     all_leads = Lead.objects.filter(company_name=estimation.company_name)
-
     form = EstimationForm(request.POST or None, instance=estimation)
 
     if request.method == 'POST':
@@ -1048,10 +1087,8 @@ def edit_estimation(request, pk):
             with transaction.atomic():
                 updated = form.save(commit=False)
 
-                # Company and Lead (allow change if provided)
-                company_id = request.POST.get('company_name') or estimation.company_name_id
-                updated.company_name_id = company_id
-
+                # Update related fields
+                updated.company_name_id = request.POST.get('company_name') or estimation.company_name_id
                 updated.lead_no_id = request.POST.get('lead_no') or None
 
                 # Numeric fields
@@ -1060,14 +1097,13 @@ def edit_estimation(request, pk):
                 updated.gst_amount = _d(request.POST.get('gst_amount'))
                 updated.total = _d(request.POST.get('total'))
 
-                # Dates/text
+                # Other fields
                 updated.quote_date = request.POST.get('quote_date') or updated.quote_date
                 updated.validity_days = request.POST.get('validity_days') or updated.validity_days
                 updated.terms_conditions = request.POST.get('terms_conditions', updated.terms_conditions or "")
-
                 updated.save()
 
-                # Replace items with submitted rows
+                # Replace all estimation items
                 EstimationItem.objects.filter(estimation=updated).delete()
 
                 details = request.POST.getlist('item_details[]')
@@ -1089,7 +1125,8 @@ def edit_estimation(request, pk):
                             amount=_d(amt),
                         )
 
-                return redirect('estimation_list')
+                logger.info(f"✅ Estimation {updated.quote_no} updated successfully.")
+                return redirect('estimation_view')
 
         except Exception as e:
             logger.exception("Error saving estimation %s", estimation.pk)
@@ -1105,9 +1142,16 @@ def edit_estimation(request, pk):
     })
 
 
+# ====================================================
+# Estimation List (Follow-up Filter)
+# ====================================================
 def estimation_list(request):
+    """
+    Filter estimations by today's follow-up.
+    """
     today = localdate()
     follow_up_filter = request.GET.get("follow_up", "")
+
     if follow_up_filter == "today":
         estimations = Estimation.objects.filter(follow_up_date=today).order_by('-id')
     else:
@@ -1116,26 +1160,10 @@ def estimation_list(request):
     paginator = Paginator(estimations, 15)
     page_obj = paginator.get_page(request.GET.get("page"))
 
-    return render(request, "estimation_list.html", {
+    return render(request, "Estimation_list.html", {
         "page_obj": page_obj,
         "follow_up": follow_up_filter,
-        "today": today
-    })
-
-
-def estimation_list(request):
-    today = localdate()
-    follow_up_filter = request.GET.get("follow_up", "")
-    if follow_up_filter == "today":
-        estimations = Estimation.objects.filter(follow_up_date=today).order_by('-id')
-    else:
-        estimations = Estimation.objects.all().order_by('-id')
-    paginator = Paginator(estimations, 15)
-    page_obj = paginator.get_page(request.GET.get("page"))
-    return render(request, "estimation_list.html", {
-        "page_obj": page_obj,
-        "follow_up": follow_up_filter,
-        "today": today
+        "today": today,
     })
 
 def approve_estimation(request, pk):
