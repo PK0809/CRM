@@ -24,8 +24,8 @@
   </div>
 
   <!-- Table -->
-  <div class="overflow-x-auto">
-    <table class="min-w-full border border-gray-300 rounded-lg shadow-sm">
+  <div class="overflow-x-auto max-h-[70vh] border border-gray-200 rounded-lg shadow-sm">
+  <table class="min-w-full table-auto border border-gray-300 rounded-lg shadow-sm text-sm">
       <thead class="bg-gray-100 text-gray-700">
         <tr>
           <th class="px-4 py-2 text-left">Branch Name</th>
@@ -39,22 +39,37 @@
       </thead>
       <tbody>
         {% for branch in branches %}
-        <tr class="border-t hover:bg-gray-50">
+        <tr class="border-t hover:bg-gray-50 transition-all duration-300">
           <td class="px-4 py-2">{{ branch.branch_name }}</td>
           <td class="px-4 py-2">{{ branch.contact_person|default:"—" }}</td>
           <td class="px-4 py-2">{{ branch.mobile }}</td>
           <td class="px-4 py-2 border">{{ branch.email|default:"—" }}</td>
           <td class="px-4 py-2">{{ branch.gst_no|default:"—" }}</td>
-          <td class="px-4 py-2">{{ branch.address }}</td>
-          <td class="px-4 py-2 text-center space-x-2">
-            <button onclick="openEditModal({{ branch.id }}, '{{ branch.branch_name|escapejs }}', '{{ branch.contact_person|default_if_none:''|escapejs }}', '{{ branch.mobile|escapejs }}','{{ branch.email|default_if_none:''|escapejs }}', '{{ branch.gst_no|default_if_none:''|escapejs }}', '{{ branch.address|escapejs }}')"
-                    class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">✏️ Edit</button>
+          <td class="px-4 py-2 break-words max-w-xs">{{ branch.address }}</td>
 
-            <a href="{% url 'delete_branch' client.id branch.id %}" 
-               onclick="return confirm('Are you sure you want to delete {{ branch.branch_name }}?');"
-               class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm">
-               🗑️ Delete
-            </a>
+          <!-- 3D Animated Buttons -->
+          <td class="px-4 py-2 text-center align-middle">
+            <div class="flex justify-center items-center gap-3">
+              <!-- ✏️ Edit Button -->
+              <button
+                onclick="openEditModal({{ branch.id }}, '{{ branch.branch_name|escapejs }}', '{{ branch.contact_person|default_if_none:''|escapejs }}', '{{ branch.mobile|escapejs }}','{{ branch.email|default_if_none:''|escapejs }}', '{{ branch.gst_no|default_if_none:''|escapejs }}', '{{ branch.address|escapejs }}')"
+                class="relative bg-blue-600 text-white px-4 py-2 rounded-md font-semibold text-sm shadow-[0_4px_0_#1E40AF] 
+                      active:shadow-[0_2px_0_#1E40AF] active:translate-y-[2px] 
+                      hover:translate-y-[-2px] hover:shadow-[0_6px_12px_rgba(59,130,246,0.4)] 
+                      transition-all duration-300 ease-out transform">
+                ✏️ Edit
+              </button>
+
+              <!-- 🗑️ Delete Button -->
+              <a href="{% url 'delete_branch' client.id branch.id %}"
+                onclick="return confirm('Are you sure you want to delete {{ branch.branch_name }}?');"
+                class="relative bg-red-600 text-white px-4 py-2 rounded-md font-semibold text-sm shadow-[0_4px_0_#991B1B] 
+                        active:shadow-[0_2px_0_#991B1B] active:translate-y-[2px] 
+                        hover:translate-y-[-2px] hover:shadow-[0_6px_12px_rgba(239,68,68,0.4)] 
+                        transition-all duration-300 ease-out transform">
+                🗑️ Delete
+              </a>
+            </div>
           </td>
         </tr>
         {% empty %}
