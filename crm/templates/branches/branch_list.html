@@ -31,6 +31,7 @@
           <th class="px-4 py-2 text-left">Branch Name</th>
           <th class="px-4 py-2 text-left">Contact Person</th>
           <th class="px-4 py-2 text-left">Mobile</th>
+          <th class="px-4 py-2 text-left border">Email</th>
           <th class="px-4 py-2 text-left">GST No</th>
           <th class="px-4 py-2 text-left">Address</th>
           <th class="px-4 py-2 text-center">Actions</th>
@@ -42,10 +43,11 @@
           <td class="px-4 py-2">{{ branch.branch_name }}</td>
           <td class="px-4 py-2">{{ branch.contact_person|default:"—" }}</td>
           <td class="px-4 py-2">{{ branch.mobile }}</td>
+          <td class="px-4 py-2 border">{{ branch.email|default:"—" }}</td>
           <td class="px-4 py-2">{{ branch.gst_no|default:"—" }}</td>
           <td class="px-4 py-2">{{ branch.address }}</td>
           <td class="px-4 py-2 text-center space-x-2">
-            <button onclick="openEditModal({{ branch.id }}, '{{ branch.branch_name|escapejs }}', '{{ branch.contact_person|default_if_none:''|escapejs }}', '{{ branch.mobile|escapejs }}', '{{ branch.gst_no|default_if_none:''|escapejs }}', '{{ branch.address|escapejs }}')"
+            <button onclick="openEditModal({{ branch.id }}, '{{ branch.branch_name|escapejs }}', '{{ branch.contact_person|default_if_none:''|escapejs }}', '{{ branch.mobile|escapejs }}','{{ branch.email|default_if_none:''|escapejs }}', '{{ branch.gst_no|default_if_none:''|escapejs }}', '{{ branch.address|escapejs }}')"
                     class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">✏️ Edit</button>
 
             <a href="{% url 'delete_branch' client.id branch.id %}" 
@@ -73,18 +75,45 @@
 </div>
 
 <!-- 🔹 Add Branch Modal -->
-<div id="addBranchModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center">
+<div id="addBranchModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-50">
   <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
     <button type="button" onclick="closeAddModal()" class="absolute top-2 right-2 text-gray-600 hover:text-gray-800">✖</button>
     <h3 class="text-xl font-semibold mb-4 text-center">Add New Branch</h3>
-    <form method="POST" class="space-y-3">
+
+    <form method="POST" action="{% url 'add_branch' %}" class="space-y-3">
       {% csrf_token %}
-      <input type="hidden" name="branch_id" value="">
-      <div><label class="block">Branch Name</label><input name="branch_name" class="w-full border rounded p-2" required></div>
-      <div><label class="block">Contact Person</label><input name="contact_person" class="w-full border rounded p-2"></div>
-      <div><label class="block">Mobile</label><input name="mobile" class="w-full border rounded p-2" required></div>
-      <div><label class="block">GST No</label><input name="gst_no" class="w-full border rounded p-2"></div>
-      <div><label class="block">Address</label><textarea name="address" rows="3" class="w-full border rounded p-2" required></textarea></div>
+      <input type="hidden" name="client_id" value="{{ client.id }}">
+
+      <div>
+        <label class="block">Branch Name</label>
+        <input name="branch_name" id="branch_name" class="w-full border rounded p-2" required>
+      </div>
+
+      <div>
+        <label class="block">Contact Person</label>
+        <input name="contact_person" id="contact_person" class="w-full border rounded p-2">
+      </div>
+
+      <div>
+        <label class="block">Mobile</label>
+        <input name="mobile" id="mobile" class="w-full border rounded p-2" required>
+      </div>
+
+      <div>
+        <label class="block">Email</label>
+        <input name="email" id="email" class="w-full border rounded p-2">
+      </div>
+
+      <div>
+        <label class="block">GST No</label>
+        <input name="gst_no" id="gst_no" class="w-full border rounded p-2">
+      </div>
+
+      <div>
+        <label class="block">Address</label>
+        <textarea name="address" id="address" rows="3" class="w-full border rounded p-2" required></textarea>
+      </div>
+
       <div class="flex justify-center gap-3 mt-4">
         <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">💾 Save</button>
         <button type="button" onclick="closeAddModal()" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">✖ Cancel</button>
@@ -93,43 +122,134 @@
   </div>
 </div>
 
+<script>
+function openAddModal() {
+  document.getElementById('addBranchModal').classList.remove('hidden');
+
+  // Auto-fetch client info via AJAX
+  fetch(`/get-client-info/?client_id={{ client.id }}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        document.getElementById('contact_person').value = data.contact_person || '';
+        document.getElementById('mobile').value = data.mobile || '';
+        document.getElementById('email').value = data.email || '';
+        document.getElementById('gst_no').value = data.gst_no || '';
+        document.getElementById('address').value = data.address || '';
+      } else {
+        console.warn("Client data fetch failed:", data.error);
+      }
+    })
+    .catch(err => console.error("Fetch error:", err));
+}
+
+function closeAddModal() {
+  document.getElementById('addBranchModal').classList.add('hidden');
+}
+</script>
+
 <!-- 🔹 Edit Branch Modal -->
-<div id="editBranchModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center">
+<div id="editBranchModal"
+     class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-50">
   <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
-    <button type="button" onclick="closeEditModal()" class="absolute top-2 right-2 text-gray-600 hover:text-gray-800">✖</button>
-    <h3 class="text-xl font-semibold mb-4 text-center">Edit Branch</h3>
-    <form method="POST" class="space-y-3">
+    
+    <!-- Close Button -->
+    <button type="button"
+            onclick="closeEditModal()"
+            class="absolute top-2 right-2 text-gray-600 hover:text-gray-800 text-xl">
+      ✖
+    </button>
+    
+    <h3 class="text-xl font-semibold mb-4 text-center text-gray-800">Edit Branch</h3>
+
+    <form id="editBranchForm" method="POST" class="space-y-3">
       {% csrf_token %}
       <input type="hidden" name="branch_id" id="edit_branch_id">
-      <div><label class="block">Branch Name</label><input id="edit_branch_name" name="branch_name" class="w-full border rounded p-2" required></div>
-      <div><label class="block">Contact Person</label><input id="edit_contact_person" name="contact_person" class="w-full border rounded p-2"></div>
-      <div><label class="block">Mobile</label><input id="edit_mobile" name="mobile" class="w-full border rounded p-2" required></div>
-      <div><label class="block">GST No</label><input id="edit_gst_no" name="gst_no" class="w-full border rounded p-2"></div>
-      <div><label class="block">Address</label><textarea id="edit_address" name="address" rows="3" class="w-full border rounded p-2" required></textarea></div>
+
+      <!-- Branch Name -->
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Branch Name</label>
+        <input id="edit_branch_name" name="branch_name"
+               class="w-full border rounded p-2 focus:ring-2 focus:ring-blue-400" required>
+      </div>
+
+      <!-- Contact Person -->
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Contact Person</label>
+        <input id="edit_contact_person" name="contact_person"
+               class="w-full border rounded p-2 focus:ring-2 focus:ring-blue-400">
+      </div>
+
+      <!-- Mobile -->
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Mobile</label>
+        <input id="edit_mobile" name="mobile"
+               class="w-full border rounded p-2 focus:ring-2 focus:ring-blue-400" required>
+      </div>
+
+      <!-- Email -->
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Email</label>
+        <input id="edit_email" name="email" type="email"
+               class="w-full border rounded p-2 focus:ring-2 focus:ring-blue-400">
+      </div>
+
+      <!-- GST No -->
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">GST No</label>
+        <input id="edit_gst_no" name="gst_no"
+               class="w-full border rounded p-2 focus:ring-2 focus:ring-blue-400">
+      </div>
+
+      <!-- Address -->
+      <div>
+        <label class="block font-semibold text-gray-700 mb-1">Address</label>
+        <textarea id="edit_address" name="address" rows="3"
+                  class="w-full border rounded p-2 focus:ring-2 focus:ring-blue-400" required></textarea>
+      </div>
+
+      <!-- Buttons -->
       <div class="flex justify-center gap-3 mt-4">
-        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">💾 Update</button>
-        <button type="button" onclick="closeEditModal()" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">✖ Cancel</button>
+        <button type="submit"
+                class="bg-blue-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-blue-700 transition">
+          💾 Update
+        </button>
+        <button type="button"
+                onclick="closeEditModal()"
+                class="bg-gray-300 text-gray-800 px-5 py-2 rounded-lg hover:bg-gray-400 transition">
+          ✖ Cancel
+        </button>
       </div>
     </form>
   </div>
 </div>
 
+<!-- ✅ Single, Clean Script Section -->
 <script>
 function openAddModal() {
-  document.getElementById('addBranchModal').classList.remove('hidden');
+  document.getElementById('addBranchModal')?.classList.remove('hidden');
 }
+
 function closeAddModal() {
-  document.getElementById('addBranchModal').classList.add('hidden');
+  document.getElementById('addBranchModal')?.classList.add('hidden');
 }
-function openEditModal(id, name, contact, mobile, gst, address) {
+
+// ✅ Fixed openEditModal (includes EMAIL)
+function openEditModal(id, name, contact, mobile, email, gst, address) {
   document.getElementById('edit_branch_id').value = id;
-  document.getElementById('edit_branch_name').value = name;
-  document.getElementById('edit_contact_person').value = contact;
-  document.getElementById('edit_mobile').value = mobile;
-  document.getElementById('edit_gst_no').value = gst;
-  document.getElementById('edit_address').value = address;
+  document.getElementById('edit_branch_name').value = name || '';
+  document.getElementById('edit_contact_person').value = contact || '';
+  document.getElementById('edit_mobile').value = mobile || '';
+  document.getElementById('edit_email').value = email || '';  // ✅ email reflected correctly
+  document.getElementById('edit_gst_no').value = gst || '';
+  document.getElementById('edit_address').value = address || '';
+
+  const form = document.getElementById('editBranchForm');
+  form.action = `/edit-branch/${id}/`;
+
   document.getElementById('editBranchModal').classList.remove('hidden');
 }
+
 function closeEditModal() {
   document.getElementById('editBranchModal').classList.add('hidden');
 }
