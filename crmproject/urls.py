@@ -43,9 +43,12 @@ urlpatterns = [
     path('client/add/ajax/', views.client_entry_ajax, name='client_entry_ajax'),
     path('client/edit/<int:client_id>/', views.edit_client, name='edit_client'),
     path('clients/delete/<int:client_id>/', views.delete_client, name='delete_client'),
+    path("add-branch/", views.add_branch, name="add_branch"),
     path('client/<int:client_id>/branches/', views.branch_list, name='branch_list'),
     path('client/<int:client_id>/branches/delete/<int:branch_id>/', views.delete_branch, name='delete_branch'),
+    path('edit-branch/<int:branch_id>/', views.edit_branch, name='edit_branch'),
     path('get-gst-no/', views.get_gst_no, name='get_gst_no'),
+    path('get-client-contacts/', views.get_client_contacts, name='get_client_contacts'),
 
     # Leads
     path('lead/', views.lead_list, name='lead_list'),
@@ -56,7 +59,6 @@ urlpatterns = [
 
     # Estimations
     path('estimations/', views.estimation_list, name='estimation_list'),
-    path('estimation/', views.estimation_list, name='estimation_list'),  # alias for convenience
     path('estimation/<int:pk>/edit/', views.edit_estimation, name='estimation_edit'),
     path('estimation/<int:pk>/approve/', views.approve_estimation, name='approve_estimation'),
     path('estimation/<int:pk>/reject/', views.reject_estimation, name='reject_estimation'),
