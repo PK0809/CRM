@@ -422,86 +422,107 @@ def client_list(request):
 
 
 
+from django.contrib import messages
+from django.shortcuts import redirect, render
+from django.utils.timezone import now
+from django.contrib.auth.decorators import login_required
+from .models import Client, Branch
+
+
+@login_required
+def client_entry(request):
+    """Handles adding a new client and automatically creates a default branch."""
+    if request.method == "POST":
+        try:
+            company_name = request.POST.get("company_name", "").strip()
+            type_of_company = request.POST.get("type_of_company", "").strip()
+            gst_no = request.POST.get("gst_no", "").strip()
+            contact_person = request.POST.get("contact_person", "").strip()
+            email = request.POST.get("email", "").strip()
+            mobile = request.POST.get("mobile", "").strip()
+            address = request.POST.get("address", "").strip()
+
+            # Basic validation
+            if not company_name or not mobile or not address:
+                messages.error(request, "⚠️ Company Name, Mobile, and Address are required.")
+                return redirect("client")
+
+            # Create Client
+            client = Client.objects.create(
+                company_name=company_name,
+                type_of_company=type_of_company,
+                gst_no=gst_no,
+                contact_person=contact_person,
+                email=email,
+                mobile=mobile,
+                address=address,
+                created_at=now(),
+            )
+
+            # ✅ Automatically create Primary Branch
+            Branch.objects.create(
+                client=client,
+                branch_name="Primary",
+                contact_person=contact_person,
+                mobile=mobile,
+                email=email,
+                gst_no=gst_no,
+                address=address,
+            )
+
+            messages.success(request, f"✅ Client '{client.company_name}' added successfully with default 'Primary' branch.")
+            return redirect("client")
+
+        except Exception as e:
+            messages.error(request, f"❌ Error adding client: {e}")
+            return redirect("client")
+
+    return render(request, "client.html")
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+from .models import Client, Branch
+
+
 @login_required
 @csrf_exempt
-def client_entry(request):
-    """Handles regular form submissions from the modal (non-AJAX)."""
-    if request.method == 'POST':
-        company_name = request.POST.get('company_name', '').strip()
-        type_of_company = request.POST.get('type_of_company', '').strip()
-        gst_no = request.POST.get('gst_no', '').strip()
-        contact_person = request.POST.get('contact_person', '').strip()
-        mobile = request.POST.get('mobile', '').strip()
-        email = request.POST.get('email', '').strip()
-        address = request.POST.get('address', '').strip()  # ✅ NEW LINE
-
-        if not company_name:
-            messages.error(request, "Company name is required.")
-            return redirect('client')
-
-        # Hide GST and Contact Person if Individual
-        if type_of_company.lower() == 'individual':
-            gst_no = ''
-            contact_person = ''
-
-        # ✅ Save all fields including address
-        Client.objects.create(
-            company_name=company_name,
-            type_of_company=type_of_company,
-            gst_no=gst_no,
-            contact_person=contact_person,
-            mobile=mobile,
-            email=email,
-            address=address
-        )
-
-        messages.success(request, "Client added successfully.")
-        return redirect('client')
-
-    return render(request, 'client.html')  # Fallback, though form is modal
-
-
-@login_required
 def client_entry_ajax(request):
-    """Handles AJAX submissions if you ever call via JavaScript."""
-    if request.method == 'POST':
-        company_name = request.POST.get('company_name', '').strip()
-        type_of_company = request.POST.get('type_of_company', '').strip()
-        gst_no = request.POST.get('gst_no', '').strip()
-        contact_person = request.POST.get('contact_person', '').strip()
-        mobile = request.POST.get('mobile', '').strip()
-        email = request.POST.get('email', '').strip()
-        address = request.POST.get('address', '').strip()  # ✅ FIXED LINE
+    """Handles AJAX client creation and auto-adds a Primary branch."""
+    if request.method == "POST":
+        try:
+            client = Client.objects.create(
+                company_name=request.POST.get("company_name", "").strip(),
+                type_of_company=request.POST.get("type_of_company", "").strip(),
+                gst_no=request.POST.get("gst_no", "").strip(),
+                contact_person=request.POST.get("contact_person", "").strip(),
+                email=request.POST.get("email", "").strip(),
+                mobile=request.POST.get("mobile", "").strip(),
+                address=request.POST.get("address", "").strip(),
+            )
 
-        if not company_name:
-            return JsonResponse({'success': False, 'error': 'Company name is required.'})
+            # ✅ Automatically create a Primary branch
+            Branch.objects.create(
+                client=client,
+                branch_name="Primary",
+                contact_person=client.contact_person,
+                mobile=client.mobile,
+                email=client.email,
+                gst_no=client.gst_no,
+                address=client.address,
+            )
 
-        # Hide GST and contact person for individuals
-        if type_of_company.lower() == 'individual':
-            gst_no = ''
-            contact_person = ''
+            return JsonResponse({
+                "success": True,
+                "client": {
+                    "id": client.id,
+                    "company_name": client.company_name
+                }
+            })
 
-        # ✅ Save including address
-        client = Client.objects.create(
-            company_name=company_name,
-            type_of_company=type_of_company,
-            gst_no=gst_no,
-            contact_person=contact_person,
-            mobile=mobile,
-            email=email,
-            address=address,
-        )
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
 
-        return JsonResponse({
-            'success': True,
-            'client': {
-                'id': client.id,
-                'company_name': client.company_name,
-                'address': client.address,
-            }
-        })
-
-    return JsonResponse({'success': False})
+    return JsonResponse({"success": False, "error": "Invalid request"})
 
 
 
@@ -546,36 +567,106 @@ def delete_client(request, client_id):
 @csrf_exempt
 @login_required
 def add_branch(request):
+    """Add a new branch to a specific client."""
     if request.method == 'POST':
-        client_id = request.POST.get('client_id')
-        branch_name = request.POST.get('branch_name')
-        contact_person = request.POST.get('contact_person', '')
-        mobile = request.POST.get('mobile')
-        gst_no = request.POST.get('gst_no', '')
-        address = request.POST.get('address')
+        try:
+            client_id = request.POST.get('client_id')
+            branch_name = request.POST.get('branch_name', '').strip()
+            contact_person = request.POST.get('contact_person', '').strip()
+            mobile = request.POST.get('mobile', '').strip()
+            email = request.POST.get('email', '').strip()
+            gst_no = request.POST.get('gst_no', '').strip()
+            address = request.POST.get('address', '').strip()
 
-        if not branch_name or not mobile or not address:
-            messages.error(request, "All required fields must be filled.")
-            return redirect('branch_list', client_id=client_id)
+            # ✅ Validation
+            if not client_id or not branch_name or not mobile or not address:
+                messages.error(request, "⚠️ All required fields must be filled.")
+                return redirect('branch_list', client_id=client_id)
 
-        Branch.objects.create(
-            client_id=client_id,
-            branch_name=branch_name,
-            contact_person=contact_person,
-            mobile=mobile,
-            gst_no=gst_no,
-            address=address
-        )
+            # ✅ Get Client (with validation)
+            client = get_object_or_404(Client, id=client_id)
 
-        messages.success(request, "Branch added successfully.")
-        return redirect('branch_list', client_id=client_id)
+            # ✅ Default Email if blank
+            if not email:
+                email = client.email or ""
 
-    return JsonResponse({'success': False})
+            # ✅ Create Branch
+            Branch.objects.create(
+                client=client,
+                branch_name=branch_name,
+                contact_person=contact_person,
+                mobile=mobile,
+                email=email,
+                gst_no=gst_no,
+                address=address,
+            )
+
+            messages.success(request, f"✅ Branch '{branch_name}' added successfully.")
+            return redirect('branch_list', client_id=client.id)
+
+        except Exception as e:
+            messages.error(request, f"❌ Error adding branch: {e}")
+            return redirect('branch_list', client_id=request.POST.get('client_id'))
+
+    # Non-POST request
+    return JsonResponse({'success': False, 'error': 'Invalid request method.'})
+
+from django.http import JsonResponse
+
+@login_required
+def get_client_info(request):
+    """Return client details (email, contact_person, mobile) as JSON for auto-fill in Add Branch."""
+    client_id = request.GET.get("client_id")
+    if not client_id:
+        return JsonResponse({"success": False, "error": "Missing client_id"})
+
+    try:
+        client = Client.objects.get(id=client_id)
+        data = {
+            "success": True,
+            "email": client.email or "",
+            "contact_person": client.contact_person or "",
+            "mobile": client.mobile or "",
+            "gst_no": client.gst_no or "",
+            "address": client.address or "",
+        }
+        return JsonResponse(data)
+    except Client.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Client not found"})
+
+@csrf_exempt
+@login_required
+def edit_branch(request, branch_id):
+    """Edit existing branch details (with email fix)."""
+    branch = get_object_or_404(Branch, id=branch_id)
+
+    if request.method == 'POST':
+        try:
+            branch.branch_name = request.POST.get('branch_name', '').strip() or branch.branch_name
+            branch.contact_person = request.POST.get('contact_person', '').strip() or branch.contact_person
+            branch.mobile = request.POST.get('mobile', '').strip() or branch.mobile
+            branch.email = request.POST.get('email', '').strip()  # ✅ make sure it's saved
+            branch.gst_no = request.POST.get('gst_no', '').strip() or branch.gst_no
+            branch.address = request.POST.get('address', '').strip() or branch.address
+
+            branch.save(update_fields=['branch_name', 'contact_person', 'mobile', 'email', 'gst_no', 'address'])  # ✅ enforce save
+
+            messages.success(request, f"✅ Branch '{branch.branch_name}' updated successfully.")
+            return redirect('branch_list', client_id=branch.client.id)
+
+        except Exception as e:
+            messages.error(request, f"❌ Error updating branch: {e}")
+            return redirect('branch_list', client_id=branch.client.id)
+
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .models import Client, Branch
+from .models import Lead, Client, Branch
 
 @login_required
 def branch_list(request, client_id):
@@ -654,41 +745,184 @@ def lead_list(request):
     page_obj = paginator.get_page(request.GET.get('page'))
     return render(request, 'lead.html', {'leads': page_obj, 'page_obj': page_obj, 'clients': Client.objects.all(), 'query': search_query})
 
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.timezone import now
+from .models import Client, Branch, Lead
+
+
 @login_required
 @csrf_exempt
 def lead_create(request):
-    clients = Client.objects.all()
+    """
+    Create a new Lead with full branch integration.
+    - Pulls contact, email, mobile, address from Branch (if selected) or Client fallback.
+    - Includes Lead Type.
+    """
+    clients = Client.objects.all().order_by("company_name")
+
     if request.method == "POST":
         try:
             client_id = request.POST.get("company_name")
-            contact_person = request.POST.get("contact_person", "").strip()
+            branch_id = request.POST.get("contact_person")  # branch dropdown value
             email = request.POST.get("email", "").strip()
             mobile = request.POST.get("mobile", "").strip()
+            address = request.POST.get("address", "").strip()
             requirement = request.POST.get("requirement", "").strip()
+            lead_type = request.POST.get("lead_type", "Referrals").strip()
+
+            # ✅ Validation
+            if not client_id:
+                messages.error(request, "⚠️ Please select a company.")
+                return redirect("lead_list")
+
             company = get_object_or_404(Client, id=client_id)
+
+            # Initialize contact details
+            contact_person_name = ""
+            branch = None
+
+            # ✅ If a branch is selected
+            if branch_id and branch_id.isdigit():
+                branch = Branch.objects.filter(id=branch_id, client=company).first()
+
+                if branch:
+                    contact_person_name = branch.contact_person or ""
+                    email = email or branch.email or ""
+                    mobile = mobile or branch.mobile or ""
+                    address = address or branch.address or ""
+
+            # ✅ If no branch or missing data → fallback to client details
+            if not branch:
+                contact_person_name = company.contact_person or ""
+                email = email or company.email or ""
+                mobile = mobile or company.mobile or ""
+                address = address or company.address or ""
+
+            if not mobile:
+                messages.error(request, "⚠️ Mobile number is required.")
+                return redirect("lead_list")
+
+            # ✅ Create Lead
             Lead.objects.create(
-                company_name=company, contact_person=contact_person, email=email, mobile=mobile,
-                requirement=requirement, status="Pending", date=now().date(),
+                company_name=company,
+                contact_person=contact_person_name,
+                email=email,
+                mobile=mobile,
+                address=address,
+                requirement=requirement,
+                lead_type=lead_type,
+                status="Pending",
+                computed_status="Pending",
+                date=now().date(),
             )
-            messages.success(request, "Lead created successfully.")
+
+            messages.success(request, f"✅ Lead created successfully for {company.company_name}.")
             return redirect("lead_list")
+
         except Exception as e:
-            messages.error(request, f"Error creating lead: {e}")
+            messages.error(request, f"❌ Error creating lead: {str(e)}")
+            return redirect("lead_list")
+
+    # Render the form page if not POST
     return render(request, "leads/lead_create.html", {"clients": clients})
+
 
 @login_required
 def lead_edit(request, pk):
+    """
+    Edit an existing Lead safely:
+    - Uses client ID instead of name to prevent 'expected number' errors.
+    - Resolves branch contact name correctly.
+    - Auto-fills email, mobile, address from branch or client.
+    - Protects 'Won' leads from being modified.
+    """
     lead = get_object_or_404(Lead, pk=pk)
-    if lead.status == "Won" and request.method == "POST":
-        return HttpResponseForbidden("Cannot edit a lead with status 'Won'.")
+
+    # Prevent editing of 'Won' leads
+    if lead.status == "Won":
+        messages.warning(request, "⚠️ You cannot edit a lead with status 'Won'.")
+        return redirect("lead_list")
+
+    clients = Client.objects.all().order_by("company_name")
+    branches = Branch.objects.filter(client=lead.company_name)
+
     if request.method == "POST":
-        lead.contact_person = request.POST.get("contact_person")
-        lead.email = request.POST.get("email")
-        lead.mobile = request.POST.get("mobile")
-        lead.requirement = request.POST.get("requirement")
-        lead.save()
-        return redirect('lead_list')
-    return render(request, 'edit_lead.html', {'lead': lead})
+        try:
+            # Fetch posted data
+            client_value = request.POST.get("company_name")
+            branch_id = request.POST.get("contact_person")
+            email = request.POST.get("email", "").strip()
+            mobile = request.POST.get("mobile", "").strip()
+            address = request.POST.get("address", "").strip()
+            requirement = request.POST.get("requirement", "").strip()
+            lead_type = request.POST.get("lead_type", "Referrals").strip()
+
+            # 🧩 FIX: Get correct Client instance (ID or Name fallback)
+            try:
+                company = Client.objects.get(id=int(client_value))
+            except (ValueError, Client.DoesNotExist):
+                company = Client.objects.filter(company_name=client_value).first()
+
+            if not company:
+                messages.error(request, "⚠️ Invalid company selected.")
+                return redirect("lead_edit", pk=lead.id)
+
+            # Determine contact person name (branch-based or fallback)
+            contact_person_name = ""
+            if branch_id and branch_id.isdigit():
+                branch = Branch.objects.filter(id=branch_id).first()
+                if branch:
+                    contact_person_name = branch.contact_person or ""
+                    # Auto-fill missing fields from branch
+                    email = email or getattr(branch, "email", "")
+                    mobile = mobile or getattr(branch, "mobile", "")
+                    address = address or getattr(branch, "address", "")
+            else:
+                # Fallback to client data
+                contact_person_name = company.contact_person or ""
+                email = email or company.email or ""
+                mobile = mobile or company.mobile or ""
+                address = address or company.address or ""
+
+            # ✅ Update lead safely
+            lead.company_name = company
+            lead.contact_person = contact_person_name
+            lead.email = email
+            lead.mobile = mobile
+            lead.address = address
+            lead.requirement = requirement
+            lead.lead_type = lead_type
+            lead.computed_status = lead.status  # keep sync
+            lead.save()
+
+            messages.success(request, "✅ Lead updated successfully.")
+            return redirect("lead_list")
+
+        except Exception as e:
+            messages.error(request, f"❌ Error updating lead: {e}")
+            return redirect("lead_edit", pk=lead.id)
+
+    # Context for template rendering
+    context = {
+        "lead": lead,
+        "clients": clients,
+        "branches": branches,
+        "lead_type_options": [
+            "Referrals",
+            "E-mail",
+            "Advertisements",
+            "Website",
+            "JD",
+            "Social media",
+        ],
+    }
+
+    return render(request, "edit_lead.html", context)
+
 
 def get_pending_lead(request):
     client_id = request.GET.get('client_id')
@@ -709,6 +943,53 @@ def get_gst_no(request):
         return JsonResponse({'gst_no': client.gst_no})
     except Client.DoesNotExist:
         return JsonResponse({'gst_no': ''})
+    
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
+from .models import Client, Branch
+
+@login_required
+@csrf_exempt
+def get_client_contacts(request):
+    """
+    Returns all branch contacts for a given client.
+    Used in Add New Lead page to populate Contact Person dropdown and autofill data.
+    """
+    client_id = request.GET.get('client_id')
+
+    if not client_id:
+        return JsonResponse({'error': 'Missing client_id'}, status=400)
+
+    try:
+        client = Client.objects.get(id=client_id)
+        branches = Branch.objects.filter(client=client).values(
+            'id',
+            'branch_name',
+            'contact_person',
+            'email',      # ✅ Added email
+            'mobile',
+            'gst_no',
+            'address',
+        )
+
+        # ✅ Return clean consistent structure
+        return JsonResponse({
+            'client': {
+                'company_name': client.company_name,
+                'default_email': client.email or '',
+                'default_mobile': client.mobile or '',
+                'default_address': client.address or '',
+                'default_contact': client.contact_person or '',
+                'default_gst_no': client.gst_no or '',
+            },
+            'branches': list(branches),
+        })
+
+    except Client.DoesNotExist:
+        return JsonResponse({'error': 'Client not found'}, status=404)
+
+
 
 from decimal import Decimal, InvalidOperation
 from django.db import transaction

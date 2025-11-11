@@ -106,6 +106,7 @@ class Branch(models.Model):
     branch_name = models.CharField(max_length=255)
     contact_person = models.CharField(max_length=100, blank=True, null=True)
     mobile = models.CharField(max_length=15)
+    email = models.EmailField(blank=True, null=True) 
     gst_no = models.CharField(max_length=50, blank=True, null=True)
     address = models.TextField()
     created_at = models.DateTimeField(default=timezone.now)
@@ -146,14 +147,24 @@ class Lead(models.Model):
         ('Rejected', 'Rejected'),
     ]
 
+    LEAD_TYPE_CHOICES = [
+        ('Referrals', 'Referrals'),
+        ('E-mail', 'E-mail'),
+        ('Advertisements', 'Advertisements'),
+        ('Website', 'Website'),
+        ('JD', 'JD'),
+        ('Social media', 'Social media'),
+    ]
+
     lead_no = models.CharField(max_length=50, unique=True, blank=True)
     date = models.DateField(auto_now_add=True)
     company_name = models.ForeignKey(Client, on_delete=models.CASCADE)
-    contact_person = models.CharField(max_length=100)
+    contact_person = models.CharField(max_length=100, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     mobile = models.CharField(max_length=20)
     address = models.TextField(blank=True)
     requirement = models.TextField(blank=True)
+    lead_type = models.CharField(max_length=50, choices=LEAD_TYPE_CHOICES, default='Referrals')  # 👈 new field
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
     computed_status = models.CharField(max_length=20, blank=True, default='')
 
