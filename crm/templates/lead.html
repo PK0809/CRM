@@ -2,257 +2,376 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Lead List</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .hidden {
-            display: none;
-        }
-    </style>
-    <script>
-        function toggleMenu(id) {
-            document.getElementById(id).classList.toggle('hidden');
-        }
-        function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('hidden');
-        }
-        function openLeadForm() {
-            document.getElementById('leadFormModal').classList.remove('hidden');
-        }
-        function closeLeadForm() {
-            document.getElementById('leadFormModal').classList.add('hidden');
-        }
-        window.onclick = function (event) {
-            const modal = document.getElementById('leadFormModal');
-            if (event.target === modal) closeLeadForm();
-        }
-        window.onload = function () {
-            const today = new Date().toISOString().split('T')[0];
-            const dateInput = document.querySelector('input[name="date"]');
-            if (dateInput) dateInput.value = today;
-        }
-    </script>
-    <style>
-        .pagination {
-            display: flex;
-            justify-content: center;
-            margin-top: 20px;
-        }
+  <meta charset="UTF-8">
+  <title>Client List</title>
+  <link rel="icon" href="{% static 'img/favicon.ico' %}" type="image/x-icon">
+  <script src="https://cdn.tailwindcss.com"></script>
 
-            .pagination a {
-                margin: 0 5px;
-                padding: 6px 12px;
-                background-color: #eee;
-                color: #333;
-                border-radius: 4px;
-                text-decoration: none;
-            }
+  <script>
+    function toggleMenu(id) {
+      document.getElementById(id)?.classList.toggle('hidden');
+    }
 
-                .pagination a:hover {
-                    background-color: #ccc;
-                }
-    </style>
+    function toggleSidebar() {
+      document.getElementById('sidebar')?.classList.toggle('hidden');
+    }
+
+    function openClientForm() {
+      document.getElementById('clientFormModal').classList.remove('hidden');
+      toggleCompanyFields();
+    }
+
+    function closeClientForm() {
+      document.getElementById('clientFormModal').classList.add('hidden');
+    }
+
+    // Hide GST and Contact Person for Individual
+    function toggleCompanyFields() {
+      const sel = document.getElementById('id_type_of_company');
+      const gstWrap = document.getElementById('gst-wrapper');
+      const contactWrap = document.getElementById('contact-wrapper');
+      const gstInput = document.getElementById('id_gst_no');
+      const contactInput = document.getElementById('id_contact_person');
+      if (!sel) return;
+
+      const val = (sel.value || '').toLowerCase();
+      const isIndividual = val === 'individual';
+
+      gstWrap.style.display = isIndividual ? 'none' : '';
+      contactWrap.style.display = isIndividual ? 'none' : '';
+      if (gstInput) gstInput.disabled = isIndividual;
+      if (contactInput) contactInput.disabled = isIndividual;
+    }
+
+    // Modal: View Address
+    function showAddressModal(companyName, address) {
+      document.getElementById('modalCompanyName').innerText = companyName;
+      document.getElementById('modalAddress').innerText = address || 'No address available.';
+      const modal = document.getElementById('addressModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeAddressModal() {
+      const modal = document.getElementById('addressModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      toggleCompanyFields();
+      document.getElementById('id_type_of_company')?.addEventListener('change', toggleCompanyFields);
+    });
+
+    // Validate before submit
+    function validateClientForm() {
+      const mobile = document.getElementById('id_mobile').value.trim();
+      const address = document.getElementById('id_address').value.trim();
+
+      if (mobile === '' || address === '') {
+        alert('⚠️ Both Mobile and Address are mandatory!');
+        return false;
+      }
+
+      const mobilePattern = /^[0-9]{10}$/;
+      if (!mobilePattern.test(mobile)) {
+        alert('Please enter a valid mobile number (10 digits).');
+        return false;
+      }
+
+    // Email validation (optional field)
+      if (email !== '') {
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailPattern.test(email)) {
+          alert('📧 Please enter a valid email address.');
+          return false;
+        }
+      }
+      return true;
+    }
+  </script>
+
+  <style>
+    .add-btn {
+      float: right;
+      margin-bottom: 20px;
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    .add-btn:hover { background-color: #45a049; }
+  </style>
 </head>
+
 <body class="bg-gray-100">
-    <!-- Header -->
-    <header class="flex items-center justify-between bg-white shadow p-4 h-[100px]">
-        <div class="flex items-center space-x-4 w-[500px]">
-            <button onclick="toggleSidebar()" class="text-xl text-gray-600 hover:text-black">☰</button>
-            <a href="{% url 'dashboard' %}">
-                <img src="{% static 'images/logo.png' %}" alt="Logo" class="w-[200px] ml-[-12px]">
-            </a>
+  <!-- Header -->
+  <header class="flex items-center justify-between bg-white shadow p-4 h-[100px]">
+    <div class="flex items-center space-x-4 w-[500px]">
+      <button onclick="toggleSidebar()" class="text-gray-500 hover:text-black text-xl">☰</button>
+      <a href="{% url 'dashboard' %}">
+        <img src="{% static 'images/logo.png' %}" alt="Logo" class="w-[200px] ml-[-12px]">
+      </a>
+    </div>
+    <div class="flex items-center space-x-2">
+      <span class="text-gray-700 font-semibold">Welcome, {{ request.user.username }}</span>
+      <a href="{% url 'profile' %}" class="text-blue-600 hover:underline">Profile</a>
+      <a href="{% url 'logout' %}" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</a>
+    </div>
+  </header>
+
+  <div class="flex">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-[250px] bg-white border-r border-gray-200 p-4">
+      <h2 class="text-2xl font-bold mb-4 text-gray-800">Main Menu</h2>
+
+      {% if request.user.is_superuser %}
+      <div class="mb-4">
+        <button onclick="toggleMenu('adminMenu')" class="w-full text-left py-2 px-4 bg-gray-100 hover:bg-gray-200 rounded font-bold">Admin</button>
+        <div id="adminMenu" class="ml-4 mt-2 hidden">
+          <li><a href="{% url 'user_list' %}">👤 Users</a></li>
         </div>
-        <div class="flex items-center space-x-2">
-            <span class="text-gray-700 font-semibold">Welcome, User</span>
-            <a href="{% url 'profile' %}" class="text-blue-600 hover:underline">Profile</a>
-            <a href="{% url 'logout' %}" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</a>
+      </div>
+      {% endif %}
+
+      <div class="mt-4">
+        <button onclick="toggleMenu('salesMenu')" class="w-full text-left py-2 px-4 bg-blue-100 hover:bg-blue-200 rounded font-bold">Sales</button>
+        <div id="salesMenu" class="ml-4 mt-2 hidden">
+          {% if perms.crm.view_client %}
+          <a href="{% url 'client' %}" class="block py-1 text-blue-600 hover:underline font-semibold">🧾 Client</a>
+          {% endif %}
+          {% if perms.crm.view_lead %}
+          <a href="/lead/" class="block py-1 text-blue-600 hover:underline font-semibold">📋 Lead</a>
+          {% endif %}
+          {% if perms.crm.view_estimation %}
+          <a href="/estimation/" class="block py-1 text-blue-600 hover:underline font-semibold">📐 Estimation</a>
+          {% endif %}
+          {% if perms.crm.view_invoice %}
+          <a href="/invoices/" class="block py-1 text-blue-600 hover:underline font-semibold">🧾 Invoice</a>
+          {% endif %}
+          {% if perms.crm.view_report %}
+          <a href="{% url 'report_list' %}" class="block py-1 text-blue-600 hover:underline font-semibold">📊 Reports</a>
+          {% endif %}
         </div>
-    </header>
 
+      {% if request.user.is_superuser %}
+      <div class="mt-4">
+        <button onclick="toggleMenu('purchaseMenu')" class="w-full text-left py-2 px-4 bg-green-100 hover:bg-green-200 rounded font-bold">Purchase</button>
+        <div id="purchaseMenu" class="ml-4 mt-2 hidden">
+          <a href="{% url 'vendor' %}" class="block py-1 text-green-600 hover:underline font-bold">Vendor</a>
+          <a href="#" class="block py-1 text-green-600 hover:underline font-bold">PO</a>
+          <a href="#" class="block py-1 text-green-600 hover:underline font-bold">Bill</a>
+        </div>
+      </div>
+      {% endif %}
+    </aside>
 
-    <div class="flex">
-        <!-- Sidebar -->
-        <aside id="sidebar" class="w-[250px] bg-white border-r border-gray-200 p-4">
-            <h2 class="text-2xl font-bold mb-4 text-gray-800">Main Menu</h2>
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 p-6">
+      <!-- HEADER ACTIONS -->
+      <div class="flex justify-between items-center mb-4">
+        <h1 class="text-3xl font-bold">Leads</h1>
+        <button onclick="openLeadForm()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 shadow">
+          ➕ Add New Lead
+        </button>
+      </div>
 
-            <!-- Admin Section -->
-            {% if request.user.is_superuser %}
-            <div class="mb-4">
-                <button onclick="toggleMenu('adminMenu')" class="w-full text-left py-2 px-4 bg-gray-100 hover:bg-gray-200 rounded font-bold">
-                    Admin
-                </button>
-                <div id="adminMenu" class="ml-4 mt-2 hidden">
-                    <li><a href="{% url 'user_list' %}">👤 Users</a></li>
-                </div>
-            </div>
-            {% endif %}
+      <!-- Messages -->
+      {% if messages %}
+      <div class="space-y-2 mb-4">
+        {% for message in messages %}
+        <div class="p-3 rounded text-sm
+          {% if message.tags == 'success' %} bg-green-100 text-green-800 border border-green-300
+          {% elif message.tags == 'error' %} bg-red-100 text-red-800 border border-red-300
+          {% else %} bg-blue-100 text-blue-800 border border-blue-300 {% endif %}">
+          {{ message }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
 
-            <div class="mt-4">
-                <button onclick="toggleMenu('salesMenu')" class="w-full text-left py-2 px-4 bg-blue-100 hover:bg-blue-200 rounded font-bold">Sales</button>
-                <div id="salesMenu" class="ml-4 mt-2 hidden">
-                    {% if perms.crm.view_client %}
-                    <a href="/client/" class="block py-1 text-blue-600 hover:underline font-semibold">🧾 Client</a>
-                    {% endif %}
+      <!-- SEARCH -->
+      <input type="text" id="leadSearch" placeholder="🔍 Search..." onkeyup="filterLeadsTable()" class="border rounded px-3 py-2 w-64 mb-4 focus:ring-2 focus:ring-blue-400" />
 
-                    {% if perms.crm.view_lead %}
-                    <a href="/lead/" class="block py-1 text-blue-600 hover:underline font-semibold">📋 Lead</a>
-                    {% endif %}
+      <!-- LEADS TABLE -->
+      <div class="overflow-x-auto bg-white rounded-lg shadow">
+        <table id="leadsTable" class="min-w-full border text-sm">
+          <thead class="bg-blue-100 text-blue-900 uppercase">
+            <tr>
+              <th class="p-2 border">Lead No</th>
+              <th class="p-2 border">Date</th>
+              <th class="p-2 border">Company</th>
+              <th class="p-2 border">Contact Person</th>
+              <th class="p-2 border">Email</th>
+              <th class="p-2 border">Mobile</th>
+              <th class="p-2 border">Address</th>
+              <th class="p-2 border">Lead Type</th>
+              <th class="p-2 border">Requirement</th>
+              <th class="p-2 border">Status</th>
+              <th class="p-2 border">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="text-gray-800 text-sm">
+            {% for lead in leads %}
+            <tr class="hover:bg-gray-50 transition">
+                <!-- Lead No -->
+                <td class="p-2 border text-center font-medium">{{ lead.lead_no }}</td>
 
-                    {% if perms.crm.view_estimation %}
-                    <a href="/estimation/" class="block py-1 text-blue-600 hover:underline font-semibold">📐 Estimation</a>
-                    {% endif %}
+                <!-- Date -->
+                <td class="p-2 border text-center">{{ lead.date|date:"d-M-Y" }}</td>
 
-                    {% if perms.crm.view_invoice %}
-                    <a href="/invoices/" class="block py-1 text-blue-600 hover:underline font-semibold">🧾 Invoice</a>
-                    {% endif %}
+                <!-- Company -->
+                <td class="p-2 border text-center">{{ lead.company_name.company_name }}</td>
 
-                    {% if perms.crm.view_report %}
-                    <a href="{% url 'report_list' %}" class="block py-1 text-blue-600 hover:underline font-semibold">📊 Reports</a>
-                    {% endif %}
-                </div>
-            </div>
+                <!-- Contact Person -->
+                <td class="p-2 border text-center">{{ lead.contact_person|default:"—" }}</td>
 
-            <!-- Purchase Section -->
-            {% if request.user.is_superuser %}
-            <div class="mt-4">
-                <button onclick="toggleMenu('purchaseMenu')" class="w-full text-left py-2 px-4 bg-green-100 hover:bg-green-200 rounded font-bold">Purchase</button>
-                <div id="purchaseMenu" class="ml-4 mt-2 hidden">
-                    <a href="{% url 'vendor' %}" class="block py-1 text-green-600 hover:underline font-bold">Vendor</a>
-                    <a href="#" class="block py-1 text-green-600 hover:underline font-bold">PO</a>
-                    <a href="#" class="block py-1 text-green-600 hover:underline font-bold">Bill</a>
-                </div>
-            </div>
-            {% endif %}
-        </aside>
+                <!-- Email -->
+                <td class="p-2 border text-center">{{ lead.email|default:"—" }}</td>
 
-        <!-- Main Content -->
-        <main class="flex-1 p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h1 class="text-4xl font-bold text-gray-800">Leads</h1>
-                <button onclick="openLeadForm()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">➕ Add New Lead</button>
-            </div>
+                <!-- Mobile -->
+                <td class="p-2 border text-center">{{ lead.mobile|default:"—" }}</td>
 
-            <input type="text" id="leadSearch" placeholder="🔍 Search..." onkeyup="filterLeadsTable()" class="border rounded px-3 py-1 w-64 mb-4 text-sm focus:ring-2 focus:ring-blue-400" />
+                <!-- Address -->
+                <td class="p-2 border text-center whitespace-pre-line">{{ lead.address|default:"—" }}</td>
 
-            <table id="leadsTable" class="min-w-full table-auto bg-gray-50 border border-gray-300">
-                <thead class="bg-blue-100 text-blue-900 text-sm uppercase">
-                    <tr>
-                        <th class="p-3 border w-[80px] text-center">Lead No</th>
-                        <th class="p-3 border w-[100px] text-center">Date</th>
-                        <th class="p-3 border w-[220px] text-center">Company</th>
-                        <th class="p-3 border w-[140px] text-center">Contact</th>
-                        <th class="p-3 border w-[200px] text-center">Email</th>
-                        <th class="p-3 border w-[120px] text-center">Mobile</th>
-                        <th class="p-3 border w-[300px] text-center">Address</th>
-                        <th class="p-3 border w-[60px] text-center">Req</th>
-                        <th class="p-3 border w-[80px] text-center">Status</th>
-                        <th class="p-3 border w-[90px] text-center">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="text-gray-800 text-sm">
-                    {% for lead in leads %}
-                    <tr class="border-t">
-                        <td class="p-2 border text-center">{{ lead.lead_no }}</td>
-                        <td class="p-2 border text-center">{{ lead.date|date:"d-M-Y" }}</td>
-                        <td class="p-2 border text-center">{{ lead.company_name.company_name }}</td>
-                        <td class="p-2 border text-center">{{ lead.contact_person }}</td>
-                        <td class="p-2 border text-center">{{ lead.email }}</td>
-                        <td class="p-2 border text-center">{{ lead.mobile }}</td>
-                        <td class="p-2 border text-center">{{ lead.address }}</td>
-                        <td class="p-2 border text-center">
+                <!-- Lead Type -->
+                <td class="p-2 border text-center">{{ lead.lead_type|default:"—" }}</td>
+
+                <!-- Requirement View -->
+                 <td class="p-2 border text-center">
                             <button onclick="showPopup('{{ lead.requirement|escapejs }}')" class="text-blue-600 text-xl hover:scale-110">👁️</button>
                         </td>
-                        <
-                        <td class="p-2 border text-center">
-                            <span class="px-2 py-1 rounded text-sm font-semibold
-                                {% if lead.computed_status == 'Won' %}
-                                    bg-green-100 text-green-800
-                                {% elif lead.computed_status == 'Lost' %}
-                                    bg-red-100 text-red-800
-                                {% elif lead.computed_status == 'Quoted' %}
-                                    bg-blue-100 text-blue-800
-                                {% elif lead.computed_status == 'Pending' %}
-                                    bg-yellow-100 text-yellow-800
-                                {% else %}
-                                    bg-gray-200 text-gray-800
-                                {% endif %}
-                            ">
-                                {{ lead.computed_status }}
-                            </span>
-                        </td>
 
-                        <td class="p-2 border text-center">
-                            {% if lead.computed_status != 'Won' and lead.computed_status != 'Lost' %}
-                            <a href="{% url 'lead_edit' lead.id %}" class="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-700">✏️ Edit</a>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                <!-- Status -->
+                <td class="p-2 border text-center">
+                <span class="px-2 py-1 text-xs rounded font-semibold
+                    {% if lead.status == 'Won' %}
+                    bg-green-100 text-green-800
+                    {% elif lead.status == 'Lost' %}
+                    bg-red-100 text-red-800
+                    {% elif lead.status == 'Quoted' %}
+                    bg-blue-100 text-blue-800
+                    {% else %}
+                    bg-yellow-100 text-yellow-800
+                    {% endif %}">
+                    {{ lead.status }}
+                </span>
+                </td>
 
-            <!-- Pagination UI -->
-            {% if page_obj.has_other_pages %}
-            <div class="text-center mt-4">
-                <ul class="inline-flex items-center space-x-1 text-sm">
-                    {% if page_obj.has_previous %}
-                    <li>
-                        <a href="?page=1{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">&laquo; First</a>
-                    </li>
-                    <li>
-                        <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">&lsaquo; Prev</a>
-                    </li>
-                    {% endif %}
+                <!-- Actions -->
+                <td class="p-2 border text-center">
+                <a href="{% url 'lead_edit' lead.id %}" 
+                    class="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-700 transition">
+                    ✏️ Edit
+                </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="11" class="p-3 text-center text-gray-500">No leads available.</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
 
-                    <li class="px-4 py-1 bg-blue-100 text-blue-800 rounded font-semibold">
-                        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-                    </li>
+  <!-- 🔹 Add New Lead Modal -->
+<div id="leadFormModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg transform transition-all scale-100">
+    <!-- Header -->
+    <div class="flex justify-between items-center border-b px-6 py-4">
+      <h2 class="text-2xl font-semibold text-gray-800">➕ Add New Lead</h2>
+      <button type="button" onclick="closeLeadForm()" 
+              class="text-gray-500 hover:text-red-600 text-2xl leading-none">&times;</button>
+    </div>
 
-                    {% if page_obj.has_next %}
-                    <li>
-                        <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Next &rsaquo;</a>
-                    </li>
-                    <li>
-                        <a href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Last &raquo;</a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </div>
-            {% endif %}
+    <!-- Body -->
+    <form method="POST" action="{% url 'lead_create' %}" class="p-6 space-y-5">
+      {% csrf_token %}
 
-            <!-- Modal Form -->
-            <div id="leadFormModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-                <div class="bg-white p-6 rounded-lg shadow-lg w-[400px]">
-                    <h2 class="text-xl font-bold mb-4">Add New Lead</h2>
-                    <form method="POST" action="{% url 'lead_create' %}">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <div class="flex justify-between items-center mb-1">
-                                <label class="block font-semibold">Company Name *</label>
-                                <a href="{% url 'client' %}" target="_blank" class="text-sm text-blue-600 font-bold hover:underline">➕ Add Client</a>
-                            </div>
-                            <select name="company_name" required class="w-full border rounded px-3 py-2 text-sm">
-                                <option value="">-- Select Client --</option>
-                                {% for client in clients %}
-                                <option value="{{ client.id }}">{{ client.company_name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="mb-3"><label class="block font-semibold">Contact Person</label><input type="text" name="contact_person" class="w-full border p-2 rounded"></div>
-                        <div class="mb-3"><label class="block font-semibold">Email</label><input type="email" name="email" class="w-full border p-2 rounded"></div>
-                        <div class="mb-3"><label class="block font-semibold">Mobile *</label><input type="text" name="mobile" required class="w-full border p-2 rounded"></div>
-                        <div class="mb-3"><label class="block font-semibold">Address</label><textarea name="address" class="w-full border p-2 rounded" rows="2"></textarea></div>
-                        <div class="mb-3"><label class="block font-semibold">Requirement</label><textarea name="requirement" class="w-full border p-2 rounded"></textarea></div>
-                        <div class="flex justify-end space-x-2 mt-4">
-                            <button type="button" onclick="closeLeadForm()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
-                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+      <!-- Company -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Company Name <span class="text-red-500">*</span></label>
+        <div class="flex items-center gap-2">
+          <select name="company_name" id="companySelect" required
+                  class="flex-1 border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+            <option value="">-- Select Client --</option>
+            {% for client in clients %}
+            <option value="{{ client.id }}">{{ client.company_name }}</option>
+            {% endfor %}
+          </select>
+          <a href="{% url 'client' %}" target="_blank"
+             class="text-sm text-blue-600 font-semibold hover:underline whitespace-nowrap">➕ Add Client</a>
+        </div>
+      </div>
 
-            <!-- Requirement Popup -->
+      <!-- Contact Person -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Contact Person</label>
+        <select id="contactSelect" name="contact_person"
+                class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+          <option value="">-- Select Contact --</option>
+        </select>
+      </div>
+
+      <!-- Email -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+        <input type="email" id="emailField" name="email" placeholder="Enter email"
+               class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+      </div>
+
+      <!-- Mobile -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Mobile <span class="text-red-500">*</span></label>
+        <input type="text" id="mobileField" name="mobile" placeholder="Enter mobile number" required
+               class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+      </div>
+
+      <!-- Address -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Address</label>
+        <textarea id="addressField" name="address" rows="2" placeholder="Enter address"
+                  class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400"></textarea>
+      </div>
+
+      <!-- Lead Type -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Lead Type <span class="text-red-500">*</span></label>
+        <select name="lead_type" required
+                class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+          <option value="">-- Select Lead Type --</option>
+          <option value="Referrals">Referrals</option>
+          <option value="E-mail">E-mail</option>
+          <option value="Advertisements">Advertisements</option>
+          <option value="Website">Website</option>
+          <option value="JD">JD</option>
+          <option value="Social media">Social media</option>
+        </select>
+      </div>
+
+      <!-- Requirement -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Requirement</label>
+        <textarea name="requirement" rows="3" placeholder="Describe requirement..."
+                  class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-400 focus:border-blue-400"></textarea>
+      </div>
+
+      <!-- Buttons -->
+      <div class="flex justify-end space-x-3 pt-4 border-t">
+        <button type="button" onclick="closeLeadForm()"
+                class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold px-5 py-2 rounded-lg transition">Cancel</button>
+        <button type="submit"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg shadow transition">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+<!-- Requirement Popup -->
             <div id="popupModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
                 <div class="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
                     <h3 class="text-lg font-semibold mb-3 text-gray-800">Requirement Details</h3>
@@ -261,24 +380,72 @@
                 </div>
             </div>
 
-            <script>
-                function showPopup(content) {
-                    document.getElementById("popupContent").textContent = content;
-                    document.getElementById("popupModal").classList.remove("hidden");
-                }
-                function closePopup() {
-                    document.getElementById("popupModal").classList.add("hidden");
-                }
-                function filterLeadsTable() {
-                    const input = document.getElementById("leadSearch").value.toLowerCase();
-                    const rows = document.querySelectorAll("#leadsTable tbody tr");
-                    rows.forEach(row => {
-                        row.style.display = [...row.children].some(td =>
-                            td.textContent.toLowerCase().includes(input)
-                        ) ? "" : "none";
-                    });
-                }
-            </script>
-            <footer class="bg-white text-right text-gray-600 p-4 shadow">Designed & Developed By Nagaraj Nada</footer>
+  <!-- SCRIPTS -->
+  <script>
+  function toggleSidebar() { document.getElementById('sidebar').classList.toggle('hidden'); }
+  function toggleMenu(id) { document.getElementById(id).classList.toggle('hidden'); }
+  function openLeadForm() { document.getElementById('leadFormModal').classList.remove('hidden'); }
+  function closeLeadForm() { document.getElementById('leadFormModal').classList.add('hidden'); }
+  function showPopup(content){ document.getElementById('popupContent').textContent = content; document.getElementById('popupModal').classList.remove('hidden'); }
+  function closePopup(){ document.getElementById('popupModal').classList.add('hidden'); }
+
+  function filterLeadsTable() {
+    const input = document.getElementById("leadSearch").value.toLowerCase();
+    const rows = document.querySelectorAll("#leadsTable tbody tr");
+    rows.forEach(row => {
+      row.style.display = [...row.children].some(td =>
+        td.textContent.toLowerCase().includes(input)
+      ) ? "" : "none";
+    });
+  }
+
+  // Auto-fill client & branch info (fixed email issue)
+  document.addEventListener('DOMContentLoaded', function () {
+    const companySelect = document.getElementById('companySelect');
+    const contactSelect = document.getElementById('contactSelect');
+    const emailField = document.getElementById('emailField');
+    const mobileField = document.getElementById('mobileField');
+    const addressField = document.getElementById('addressField');
+
+    companySelect.addEventListener('change', function () {
+      const clientId = this.value;
+      if (!clientId) {
+        emailField.value = mobileField.value = addressField.value = '';
+        contactSelect.innerHTML = '<option value="">-- Select Contact --</option>';
+        return;
+      }
+
+      fetch(`/get-client-contacts/?client_id=${clientId}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.client) {
+            emailField.value = data.client.email || '';
+            mobileField.value = data.client.mobile || '';
+            addressField.value = data.client.address || '';
+          }
+          contactSelect.innerHTML = '<option value="">-- Select Contact --</option>';
+          if (data.branches) {
+            data.branches.forEach(branch => {
+              const opt = document.createElement('option');
+              opt.value = branch.id;
+              opt.textContent = branch.contact_person || branch.branch_name || '—';
+              opt.dataset.email = branch.email || '';
+              opt.dataset.mobile = branch.mobile || '';
+              opt.dataset.address = branch.address || '';
+              contactSelect.appendChild(opt);
+            });
+          }
+        });
+    });
+
+    contactSelect.addEventListener('change', function () {
+      const opt = this.options[this.selectedIndex];
+      if (!opt) return;
+      emailField.value = opt.dataset.email || emailField.value;
+      mobileField.value = opt.dataset.mobile || mobileField.value;
+      addressField.value = opt.dataset.address || addressField.value;
+    });
+  });
+  </script>
 </body>
 </html>
