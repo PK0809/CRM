@@ -1441,7 +1441,7 @@ def estimation_list(request):
     paginator = Paginator(estimations, 15)
     page_obj = paginator.get_page(request.GET.get("page"))
 
-    return render(request, "Estimation_list.html", {
+    return render(request, "estimation_list.html", {
         "page_obj": page_obj,
         "follow_up": follow_up_filter,
         "today": today,
