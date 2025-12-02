@@ -54,7 +54,7 @@
                     </td>
                     <td class="px-4 py-2 border text-center">{{ est.quote_date }}</td>
                     <td class="px-4 py-2 border text-center">{{ est.company_name }}</td>
-                    <td class="px-4 py-2 border text-center">#{{ est.lead_no.lead_no|stringformat:"04d" }}</td>
+                    <td class="px-4 py-2 border text-center">#{{ est.lead_no.id|stringformat:"04d" }}</td>
                     <td class="px-4 py-2 border text-center">₹{{ est.total }}</td>
                     <td class="px-4 py-2 border text-center">
                         {% if est.status == "Approved" %}<span class="text-green-600 font-semibold">{{ est.status }}</span>
