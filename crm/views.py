@@ -1459,7 +1459,7 @@ def approve_estimation(request, pk):
         if 'po_attachment' in request.FILES:
             estimation.po_attachment = request.FILES['po_attachment']
         estimation.save()
-        return redirect('invoice_approval_list')
+        return redirect('invoice_list')
     form = ApprovalForm(instance=estimation)
     return render(request, 'crm/approve_estimation.html', {'estimation': estimation, 'form': form})
 
