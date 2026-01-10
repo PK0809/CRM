@@ -1,4 +1,0 @@
-deployment:
-  tasks:
-    - export DEPLOYPATH=/home/bctfjllg/public_html/crm/
-    - /bin/cp -R * $DEPLOYPATH
