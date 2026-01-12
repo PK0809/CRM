@@ -64,11 +64,22 @@ urlpatterns = [
     path('estimation/<int:pk>/reject/', views.reject_estimation, name='reject_estimation'),
     path('estimation/<int:pk>/status/<str:new_status>/', views.update_estimation_status, name='estimation_status'),
     path('estimation/<int:pk>/lost/', views.mark_lost, name='mark_lost'),
-    path('estimation/<int:id>/review/', views.mark_under_review, name='mark_under_review'),
+    path('estimation/<int:pk>/review/',views.mark_under_review,name="mark_under_review",),
     path('estimation/view/<int:pk>/', views.estimation_detail_view, name='estimation_detail'),
     path('create-quotation/', views.create_quotation, name='create_quotation'),
     path('quotation/<int:pk>/pdf/', QuotationPDFView.as_view(), name='quotation_pdf'),
+  
 
+
+    path("dc/create/<int:pk>/", views.create_dc, name="create_dc"),
+    path('dc/', views.dc_list, name='dc_list'),
+    path("dc/<int:pk>/edit/", views.edit_dc, name="edit_dc"),
+    path("dc/<int:pk>/delete/", views.delete_dc, name="delete_dc"),
+    path("dc/<int:pk>/pdf/", views.dc_pdf, name="dc_pdf"),
+
+
+
+    
 
     # Invoices
     path('invoices/', views.invoice_list_view, name='invoice_list'),
