@@ -117,24 +117,13 @@ class Branch(models.Model):
 # ====================================================
 #  Lead
 # ====================================================
+from django.db import transaction
+
 def generate_lead_no():
-    """
-    Generate the next sequential Lead number in the format #0001, #0002, etc.
-    Ensures numbering continues even if previous lead_no values are missing or malformed.
-    """
-    from .models import Lead  # avoid circular import
-
-    last_lead = Lead.objects.order_by('-id').first()
-    number = 1
-
-    if last_lead and last_lead.lead_no:
-        lead_no = str(last_lead.lead_no).strip().replace('#', '')
-        if lead_no.isdigit():
-            number = int(lead_no) + 1
-        else:
-            number = last_lead.id + 1
-
-    return f"#{number:04d}"
+    with transaction.atomic():
+        last = Lead.objects.select_for_update().order_by('-id').first()
+        number = int(last.lead_no.replace('#', '')) + 1 if last and last.lead_no else 1
+        return f"#{number:04d}"
 
 
 
@@ -215,48 +204,22 @@ class Estimation(models.Model):
     lost_reason = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
 
-    def save(self, *args, **kwargs):
-        """
-        Assigns Estimation number logic:
-        - If linked to a Lead → reuse that Lead's number.
-        - Otherwise → generate next sequential number (#0001, #0002, etc.).
-        """
-        from .models import Lead  # avoid circular import
 
-        if not self.quote_no:
-            if self.lead_no and self.lead_no.lead_no:
-                # ✅ Use same number as Lead
-                self.quote_no = self.lead_no.lead_no
-            else:
-                # ✅ Generate next available sequential number
-                last_lead = Lead.objects.order_by('-id').first()
-                last_est = Estimation.objects.order_by('-id').first()
+from django.db import transaction
+from django.db.models import F
 
-                lead_num = 0
-                est_num = 0
+def generate_estimation_no():
+    with transaction.atomic():
+        setting, _ = EstimationSettings.objects.select_for_update().get_or_create(
+            id=1,
+            defaults={'prefix': 'EST', 'next_number': 1}
+        )
 
-                if last_lead and last_lead.lead_no:
-                    try:
-                        lead_num = int(str(last_lead.lead_no).replace('#', ''))
-                    except ValueError:
-                        lead_num = last_lead.id
-
-                if last_est and last_est.quote_no:
-                    try:
-                        est_num = int(str(last_est.quote_no).replace('#', ''))
-                    except ValueError:
-                        est_num = last_est.id
-
-                next_number = max(lead_num, est_num) + 1
-                self.quote_no = f"#{next_number:04d}"
-
-        super().save(*args, **kwargs)
-
-    def amount_in_words(self):
-        return num2words(self.total, to='currency', lang='en_IN').title() + ' Only'
-
-    def __str__(self):
-        return self.quote_no
+        quote_no = f"{setting.prefix}-{setting.next_number:04d}"
+        setting.next_number = F('next_number') + 1
+        setting.save(update_fields=['next_number'])
+        setting.refresh_from_db()
+        return quote_no
 
 
 class EstimationItem(models.Model):
@@ -268,8 +231,105 @@ class EstimationItem(models.Model):
     tax = models.DecimalField(max_digits=5, decimal_places=2)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
 
+    def delivered_qty(self):
+        return sum(
+            item.quantity
+            for item in DeliveryChallanItem.objects.filter(
+                estimation_item=self
+            )
+        )
+
+    def remaining_qty(self):
+        return self.quantity - self.delivered_qty()
+
+
     def __str__(self):
         return f"{self.item_details} (Qty: {self.quantity})"
+    
+def is_open(self):
+    return self.status in ["Pending", "Under Review"]
+
+def can_create_dc(self):
+    return self.status in ["Pending", "Under Review", "Approved", "Invoiced"]
+    
+# ============================
+# Delivery Challan
+# ============================
+# models.py
+class DeliveryChallan(models.Model):
+    estimation = models.ForeignKey(
+        Estimation,
+        on_delete=models.CASCADE,
+        related_name="delivery_challans"
+    )
+
+    dc_no = models.CharField(max_length=50, unique=True)
+    dc_date = models.DateField()
+
+    delivery_address = models.TextField()
+    contact_person = models.CharField(max_length=100)
+    contact_number = models.CharField(max_length=15)
+
+    # ✅ REQUIRED FOR YOUR CREATE_DC VIEW
+    po_no = models.CharField(max_length=100, blank=True, null=True)
+    po_date = models.DateField(blank=True, null=True)
+
+    terms = models.TextField(
+        default="Received the above mentioned goods in good condition, complaints (if any) contact within 24 hours"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.dc_no
+
+class DeliveryChallanItem(models.Model):
+    dc = models.ForeignKey(
+        DeliveryChallan,
+        on_delete=models.CASCADE,
+        related_name="items"
+    )
+
+    estimation_item = models.ForeignKey(
+        EstimationItem,
+        on_delete=models.CASCADE
+    )
+
+    quantity = models.PositiveIntegerField()
+
+    UOM_CHOICES = [
+        ("Nos", "Nos"),
+        ("Box", "Box"),
+        ("Meter", "Meter"),
+    ]
+    uom = models.CharField(
+        max_length=10,
+        choices=UOM_CHOICES,
+        default="Nos"
+    )
+
+    description = models.TextField(blank=True)
+
+    def save(self, *args, **kwargs):
+        # ✅ Fallback to estimation item description
+        if not self.description and self.estimation_item:
+            self.description = self.estimation_item.item_details
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.description[:40]} ({self.quantity} {self.uom})"
+
+
+from django.db import transaction
+from django.db.models import F
+
+def generate_dc_no():
+    with transaction.atomic():
+        last = DeliveryChallan.objects.select_for_update().order_by('-id').first()
+        number = last.id + 1 if last else 1
+        return f"DC-{number:04d}"
+
+
 
 
 # ====================================================
@@ -284,7 +344,7 @@ class Invoice(models.Model):
     ]
 
     estimation = models.ForeignKey(Estimation, on_delete=models.CASCADE)
-    invoice_no = models.CharField(max_length=50)
+    invoice_no = models.CharField(max_length=50, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     credit_days = models.PositiveIntegerField(default=0)
     remarks = models.TextField(blank=True)

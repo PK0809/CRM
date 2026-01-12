@@ -33,7 +33,7 @@ from pathlib import Path
 from .models import (
     UserProfile, Client, Invoice, Lead, Estimation, EstimationItem, Branch,
     UserPermission, PaymentLog, GSTSettings, EstimationSettings,
-    TermsAndConditions
+    TermsAndConditions, DeliveryChallan, DeliveryChallanItem
 )
 from .forms import UserForm, ClientForm, EstimationForm, ApprovalForm
 from .utils import inr_currency_words, generate_invoice_number
@@ -76,12 +76,6 @@ from django.contrib.auth import update_session_auth_hash
 from .forms import UserForm
 from .models import User, UserProfile, UserPermission
 
-
-# ---------------------------------------------------
-# Helper checks
-# ---------------------------------------------------
-def is_admin(user):
-    return user.is_authenticated and user.role == "Admin"
 
 
 # ---------------------------------------------------
@@ -179,8 +173,10 @@ User = get_user_model()
 
 
 def is_admin(user):
-    """Allow only admins or superusers to delete"""
-    return user.is_superuser or (hasattr(user, 'userprofile') and user.userprofile.role == 'Admin')
+    return user.is_superuser or (
+        hasattr(user, 'userprofile') and user.userprofile.role == 'Admin'
+    )
+
 
 
 @login_required(login_url='login')
@@ -252,22 +248,22 @@ class UserUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
 
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import render
 from django.db.models import Sum, Count, Q
 from .models import Invoice, PaymentLog, Lead, Estimation, Client, UserPermission
 
 
 @login_required
 def dashboard(request):
-    """Displays the CRM dashboard with key metrics and permission-based menu."""
     user = request.user
 
     # --- USER PERMISSIONS ---
     user_perm_names = set(
-        UserPermission.objects.filter(userprofile__user=user).values_list("name", flat=True)
+        UserPermission.objects
+        .filter(userprofile__user=user)
+        .values_list("name", flat=True)
     )
 
-    # --- BASE CONTEXT ---
     context = {
         "can_view_client": "can_view_client" in user_perm_names,
         "can_add_client": "can_add_client" in user_perm_names,
@@ -280,6 +276,7 @@ def dashboard(request):
                 {"name": "Client", "url": "/client/"},
                 {"name": "Lead", "url": "/lead/"},
                 {"name": "Estimation", "url": "/estimation/"},
+                {"name": "Delivery Challan", "url": "/dc/"},
                 {"name": "Invoice", "url": "/invoices/"},
                 {"name": "Reports", "url": "/reports/"},
             ],
@@ -291,47 +288,65 @@ def dashboard(request):
         },
     }
 
-    # --- AGGREGATED METRICS ---
-    context["total_invoiced"] = Invoice.objects.aggregate(
-        total=Sum("total_value")
-    )["total"] or 0
+    # --- AGGREGATES ---
+    context["total_invoiced"] = (
+        Invoice.objects.aggregate(total=Sum("total_value"))["total"] or 0
+    )
 
-    context["paid"] = PaymentLog.objects.filter(
-        Q(status="Paid") | Q(status="Partial Paid")
-    ).aggregate(total=Sum("amount_paid"))["total"] or 0
+    context["paid"] = (
+        PaymentLog.objects.filter(
+            Q(status="Paid") | Q(status="Partial Paid")
+        ).aggregate(total=Sum("amount_paid"))["total"] or 0
+    )
 
-    context["balance_due"] = Invoice.objects.aggregate(
-        total=Sum("balance_due")
-    )["total"] or 0
+    context["balance_due"] = (
+        Invoice.objects.aggregate(total=Sum("balance_due"))["total"] or 0
+    )
 
-    # --- LEADS & INVOICES ---
+    # --- COUNTS ---
     total_leads = Lead.objects.count()
     total_quotations = Estimation.objects.count()
     total_invoices = Invoice.objects.count()
 
-    context["total_leads"] = total_leads
-    context["total_quotations"] = total_quotations
-    context["total_invoices"] = total_invoices
-    context["conversion_rate"] = (
-        round((total_invoices / total_leads) * 100, 2) if total_leads else 0
-    )
+    context.update({
+        "total_leads": total_leads,
+        "total_quotations": total_quotations,
+        "total_invoices": total_invoices,
+        "conversion_rate": round((total_invoices / total_leads) * 100, 2)
+        if total_leads else 0,
+    })
 
-    # --- STATUS BREAKDOWNS ---
-    context["quotation_status"] = (
-        Estimation.objects.values("status")
+    # --- STATUS BREAKDOWNS (✅ JSON SAFE) ---
+    quotation_status_qs = (
+        Estimation.objects
+        .exclude(status__isnull=True)
+        .values("status")
         .annotate(count=Count("id"))
         .order_by("status")
     )
 
-    context["invoice_status"] = (
-        Invoice.objects.values("status")
+    context["quotation_status"] = [
+        {"status": row["status"], "count": row["count"]}
+        for row in quotation_status_qs
+    ]
+
+    invoice_status_qs = (
+        Invoice.objects
+        .exclude(status__isnull=True)
+        .values("status")
         .annotate(count=Count("id"))
         .order_by("status")
     )
 
-    # --- TOP CLIENTS ---
+    context["invoice_status"] = [
+        {"status": row["status"], "count": row["count"]}
+        for row in invoice_status_qs
+    ]
+
+    # --- TOP CLIENTS (NOT USED IN JSON → SAFE AS QS) ---
     context["top_clients"] = (
-        Client.objects.annotate(total_leads=Count("lead"))
+        Client.objects
+        .annotate(total_leads=Count("lead"))
         .order_by("-total_leads")[:4]
     )
 
@@ -345,9 +360,8 @@ def dashboard(request):
         ("Previous Year", "previous_year"),
         ("Custom", "custom"),
     ]
-    context["selected_filter"] = request.GET.get("date_filter", "this_month")
 
-    # --- USER NAME ---
+    context["selected_filter"] = request.GET.get("date_filter", "this_month")
     context["user_name"] = user.first_name or user.username
 
     return render(request, "dashboard.html", context)
@@ -1215,12 +1229,16 @@ class QuotationPDFView(View):
         taxable_value = sub_total - discount
 
         # GST calculation
-        gst_rate = 18  # can be dynamic
-        gst_amount = taxable_value * gst_rate / 100
+        GST_RATE = getattr(settings, "GST_RATE", 18)
+        OUR_GST_STATE = getattr(settings, "GST_STATE_CODE", "29")
+
+        # normalize GST rate for calculations
+        gst_rate = Decimal("18")
+        gst_amount = (taxable_value * gst_rate) / Decimal("100")
 
         # Split GST based on state
         company_gst_state = (estimation.gst_no or "").strip()[:2]
-        our_gst_state = "29"
+        our_gst_state = OUR_GST_STATE
         same_state = company_gst_state == our_gst_state
 
         if same_state:
@@ -1582,15 +1600,24 @@ def estimation_detail_view(request, pk):
     total = sum((item.amount for item in items), Decimal('0.00'))
     return render(request, 'crm/estimation_detail_view.html', {'estimation': estimation, 'items': items, 'total': total})
 
-@csrf_exempt
-def mark_under_review(request, id):
-    if request.method == 'POST':
-        estimation = Estimation.objects.get(id=id)
-        estimation.status = 'Under Review'
-        estimation.follow_up_date = request.POST.get('follow_up_date')
-        estimation.follow_up_remarks = request.POST.get('follow_up_remarks')
-        estimation.save()
-        return redirect('estimation_list')
+from django.shortcuts import get_object_or_404, redirect
+from django.views.decorators.http import require_POST
+from django.contrib import messages
+
+@require_POST
+def mark_under_review(request, pk):
+    est = get_object_or_404(Estimation, pk=pk)
+
+    est.status = "Under Review"
+    est.follow_up_date = request.POST.get("follow_up_date")
+    est.follow_up_remarks = request.POST.get("follow_up_remarks")
+    est.save()
+
+    messages.success(request, "Estimation marked as Under Review")
+    return redirect("estimation_list")
+
+
+
 
 def invoices_view(request):
     estimations_without_invoice = Estimation.objects.filter(generated_invoice__isnull=True)
@@ -1799,3 +1826,254 @@ def get_filtered_invoices(request):
         invoices = invoices.filter(estimation__lead_no=lead_no)
 
     return invoices
+
+
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.timezone import now
+
+from .models import Estimation, DeliveryChallan, DeliveryChallanItem, EstimationItem
+
+
+def generate_dc_number():
+    """
+    Generate a new Delivery Challan number in the form DC-0001, DC-0002, ...
+    Falls back gracefully if the last dc_no isn't parseable.
+    """
+    last = DeliveryChallan.objects.order_by('-id').first()
+    if last and getattr(last, 'dc_no', None):
+        try:
+            number = int(str(last.dc_no).split('-')[-1]) + 1
+        except Exception:
+            # fallback to using last.id + 1 to avoid crash
+            number = (last.id or 0) + 1
+    else:
+        number = 1
+    return f"DC-{number:04d}"
+
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.timezone import now
+
+@login_required
+def create_dc(request, pk):
+    estimation = get_object_or_404(
+        Estimation.objects.prefetch_related("items"),
+        pk=pk
+    )
+
+    if request.method == "POST":
+        selected_items = request.POST.getlist("item_id[]")
+
+        if not selected_items:
+            messages.error(request, "Please select at least one item.")
+            return redirect("create_dc", pk=pk)
+
+        # ✅ Create Delivery Challan FIRST
+        dc = DeliveryChallan.objects.create(
+            estimation=estimation,
+            dc_no=generate_dc_number(),
+            dc_date=request.POST.get("dc_date"),
+            delivery_address=request.POST.get("delivery_address"),
+            contact_person=request.POST.get("contact_person"),
+            contact_number=request.POST.get("contact_number"),
+            terms=request.POST.get("terms", "ABC"),
+            po_no=request.POST.get("po_no"),
+            po_date=request.POST.get("po_date") or None,
+        )
+
+        try:
+            for item_id in selected_items:
+                qty = int(request.POST.get(f"qty_{item_id}", 0))
+                desc = request.POST.get(f"desc_{item_id}", "").strip()
+                uom = request.POST.get(f"uom_{item_id}", "Nos").strip()
+
+                if qty <= 0:
+                    continue
+
+                est_item = get_object_or_404(EstimationItem, id=item_id)
+
+                # ❌ Prevent excess quantity
+                if qty > est_item.quantity:
+                    raise ValueError(
+                        f"Quantity exceeds limit for {est_item.item_details}"
+                    )
+
+                DeliveryChallanItem.objects.create(
+                    dc=dc,
+                    estimation_item=est_item,
+                    quantity=qty,
+                    uom=uom,
+                    description=desc or est_item.item_details,
+                )
+
+        except Exception as e:
+            dc.delete()  # ✅ rollback DC
+            messages.error(request, str(e))
+            return redirect("create_dc", pk=pk)
+
+        messages.success(
+            request,
+            f"Delivery Challan {dc.dc_no} created successfully."
+        )
+        return redirect("dc_list")
+
+    # ---------------- GET REQUEST ----------------
+    lead = getattr(estimation, "lead_no", None)
+
+    context = {
+        "estimation": estimation,
+        "dc_no": generate_dc_number(),
+        "dc_date": now().date(),
+
+        # From quotation
+        "delivery_address": estimation.shipping_address or "",
+
+        # From lead
+        "contact_person": lead.contact_person if lead else "",
+        "contact_number": lead.mobile if lead else "",
+
+        "items": estimation.items.all(),
+        "terms": (
+            "Received the above mentioned goods in good condition, complaints (if any) contact within 24 hours."
+        ),
+    }
+
+    return render(request, "dc/create_dc.html", context)
+
+@login_required
+def dc_list(request):
+    dcs = DeliveryChallan.objects.select_related(
+        'estimation'
+    ).order_by('-created_at')
+
+    return render(request, 'dc/dc_list.html', {'dcs': dcs})
+
+from pathlib import Path
+from django.conf import settings
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from weasyprint import HTML
+from django.shortcuts import get_object_or_404
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def dc_pdf(request, pk):
+    dc = get_object_or_404(DeliveryChallan, pk=pk)
+
+    # Resolve logo path safely — STATIC_ROOT may be None in some environments
+    logo_uri = ""
+    try:
+        if getattr(settings, "STATIC_ROOT", None):
+            logo_path = Path(settings.STATIC_ROOT) / "images" / "logo.png"
+            logo_uri = logo_path.resolve().as_uri()
+        else:
+            # Fallback to BASE_DIR/static/images/logo.png if STATIC_ROOT not set
+            logo_path = Path(settings.BASE_DIR) / "static" / "images" / "logo.png"
+            logo_uri = logo_path.resolve().as_uri()
+    except Exception:
+        # keep logo_uri empty string if resolution fails
+        logo_uri = ""
+
+    context = {
+        "dc": dc,
+        "company_name": "iSecure Solutions",
+        "company_address": "#60 Swarupa, 5th West Cr, Riches Garden, RM Nagar, Bangalore 560016",
+        "company_phone": "916 916 8216",
+        "company_email": "support@isecuresolutions.in",
+        "company_gstin": "29AVXPP2341P1ZJ",
+        "logo_uri": logo_uri,
+    }
+
+    html_string = render_to_string("dc/dc_pdf.html", context)
+
+    # Use a reliable base_url for weasyprint (convert Path to URI)
+    try:
+        base_url = Path(settings.BASE_DIR).resolve().as_uri()
+    except Exception:
+        base_url = request.build_absolute_uri('/')
+
+    pdf = HTML(
+        string=html_string,
+        base_url=base_url
+    ).write_pdf()
+
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{dc.dc_no}.pdf"'
+    return response
+
+
+
+@login_required
+@require_POST
+def delete_dc(request, pk):
+    dc = get_object_or_404(DeliveryChallan, pk=pk)
+    dc.delete()
+    messages.success(request, "Delivery Challan deleted successfully.")
+    return redirect("dc_list")
+
+
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib import messages
+
+from .models import DeliveryChallan, DeliveryChallanItem, EstimationItem
+
+
+@login_required
+def edit_dc(request, pk):
+    dc = get_object_or_404(
+        DeliveryChallan.objects.prefetch_related("items__estimation_item"),
+        pk=pk
+    )
+    estimation = dc.estimation
+
+    if request.method == "POST":
+        # ---- Update DC Header ----
+        dc.dc_date = request.POST.get("dc_date")
+        dc.delivery_address = request.POST.get("delivery_address")
+        dc.contact_person = request.POST.get("contact_person")
+        dc.contact_number = request.POST.get("contact_number")
+        dc.terms = request.POST.get("terms")
+        dc.po_no = request.POST.get("po_no")
+        dc.po_date = request.POST.get("po_date") or None
+        dc.save()
+
+        # Remove old items
+        dc.items.all().delete()
+
+        # Recreate items
+        for item_id in request.POST.getlist("item_id[]"):
+            qty = int(request.POST.get(f"qty_{item_id}", 0))
+            desc = request.POST.get(f"desc_{item_id}", "").strip()
+            uom = request.POST.get(f"uom_{item_id}", "Nos")
+
+            if qty <= 0:
+                continue
+
+            est_item = get_object_or_404(EstimationItem, id=item_id)
+
+            DeliveryChallanItem.objects.create(
+                dc=dc,
+                estimation_item=est_item,
+                quantity=qty,
+                uom=uom,
+                description=desc or est_item.item_details,
+            )
+
+        messages.success(request, "Delivery Challan updated successfully.")
+        return redirect("dc_list")
+
+    # ---- GET REQUEST ----
+    context = {
+        "dc": dc,
+        "estimation": estimation,
+        "items": estimation.items.all(),
+        "dc_items": dc.items.all(),  # ✅ IMPORTANT
+    }
+
+    return render(request, "dc/edit_dc.html", context)
