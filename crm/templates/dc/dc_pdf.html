@@ -1,0 +1,191 @@
+﻿{% spaceless %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+
+<style>
+@page {
+    margin: 20px;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    margin: 0;
+    padding: 0;
+    color: #333;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    border: 1px solid #999;
+    padding: 6px;
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    background-color: #f3f3f3;
+}
+
+.center {
+    text-align: center;
+}
+
+.right {
+    text-align: right;
+}
+
+.bold {
+    font-weight: bold;
+}
+
+.small {
+    font-size: 10px;
+}
+
+.desc {
+    text-align: left;
+}
+
+.signature td {
+    height: 70px;
+    vertical-align: bottom;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ================= HEADER ================= -->
+<div style="border:1px solid #999; padding:10px;">
+<table>
+<tr>
+
+    <!-- LOGO -->
+    <td style="width: 25%; padding: 10px; text-align: center; vertical-align: middle; border-right: 1px solid #999;">
+        <img src="{{ logo_uri }}" style="width:180px; height:auto;">
+    </td>
+
+
+    <!-- COMPANY DETAILS -->
+    <td style="width:50%; text-align:center; line-height:1.5;">
+        <strong style="font-size:15px;">
+            iSecure Solutions, a Brand of B16Ventures
+        </strong><br>
+        #60 Swarupa, 5th West Cr, Riches Garden, RM Nagar,<br>
+        Bangalore 560016 | Ph: 916 916 8216<br>
+        support@isecuresolutions.in | www.isecuresolutions.in<br>
+        GSTIN: 29AVXPP2341P1ZJ
+    </td>
+
+    <!-- DC META -->
+    <td style="width:30%; text-align:right;">
+        <div style="font-size:20px; font-weight:bold;">
+            DELIVERY CHALLAN
+        </div>
+        <div style="margin-top:40px;">
+            <strong>DC No:</strong> {{ dc.dc_no }}<br>
+            <strong>Date:</strong> {{ dc.dc_date|date:"d/m/Y" }}
+        </div>
+    </td>
+
+</tr>
+</table>
+</div>
+
+<!-- ================= PARTY + PO ================= -->
+<table style="margin-top:15px;">
+<tr>
+    <td style="width:60%;">
+        <strong>M/s :</strong>
+        <span style="color:#003399; font-weight:bold;">
+            {{ dc.estimation.company_name }}
+        </span><br>
+        <strong>Attn :</strong> {{ dc.contact_person }}<br>
+        {{ dc.delivery_address|linebreaksbr }}<br>
+        <strong>Ph :</strong> {{ dc.contact_number }}
+    </td>
+
+    <td style="width:40%;">
+        <strong>PO No :</strong> {{ dc.po_no|default:"-" }}<br>
+        <strong>PO Date :</strong>
+        {% if dc.po_date %}
+            {{ dc.po_date|date:"d/m/Y" }}
+        {% else %}
+            -
+        {% endif %}
+    </td>
+</tr>
+</table>
+
+<!-- ================= ITEMS ================= -->
+<table style="margin-top:20px;">
+<thead>
+<tr>
+    <th style="width:5%;">SL No</th>
+    <th>Description</th>
+    <th style="width:8%;" class="right">Qty</th>
+    <th style="width:8%;" class="right">UOM</th>
+</tr>
+</thead>
+
+<tbody>
+{% for item in dc.items.all %}
+<tr>
+    <td>{{ forloop.counter }}</td>
+    <td class="desc">{{ item.description }}</td>
+    <td class="right">{{ item.quantity }}</td>
+    <td class="right">{{ item.uom }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+
+<!-- ================= NOTE ================= -->
+<table style="margin-top:10px;">
+<tr>
+    <td>
+        <strong>Note:</strong><br>
+        {{ dc.terms|linebreaksbr }}
+    </td>
+</tr>
+</table>
+
+<!-- ================= SIGNATURES ================= -->
+<table class="signature" style="margin-top:20px;">
+<tr>
+    <td style="width:33%;" class="center">
+        Received Name & Received Sign<br>
+    </td>
+
+    <td style="width:33%;" class="center">
+        Delivered By
+    </td>
+
+    <td style="width:33%;" class="center">
+        Authorised Sign
+    </td>
+</tr>
+</table>
+
+<!-- ================= FOOTER ================= -->
+<table style="margin-top:10px;">
+<tr>
+    <td class="small">
+        * E. & O. E &nbsp;&nbsp; * Subject to Jurisdiction
+    </td>
+    <td class="center bold">
+        Thank You for your Business !
+    </td>
+</tr>
+</table>
+
+</body>
+</html>
+{% endspaceless %}

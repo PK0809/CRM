@@ -74,6 +74,13 @@
                 {% if perms.crm.view_client %}<a href="/client/" class="block py-1 text-blue-700 hover:underline font-semibold">🧾 Client</a>{% endif %}
                 {% if perms.crm.view_lead %}<a href="/lead/" class="block py-1 text-blue-700 hover:underline font-semibold">📋 Lead</a>{% endif %}
                 {% if perms.crm.view_estimation %}<a href="/estimation/" class="block py-1 text-blue-700 hover:underline font-semibold">📐 Estimation</a>{% endif %}
+                {# ✅ DELIVERY CHALLAN MENU #}
+                    {% if perms.crm.view_deliverychallan %}
+                    <a href="{% url 'dc_list' %}"
+                    class="block py-1 text-blue-600 hover:underline font-semibold">
+                        🚚 Delivery Challan
+                    </a>
+                    {% endif %}
                 {% if perms.crm.view_invoice %}<a href="/invoices/" class="block py-1 text-blue-700 hover:underline font-semibold">🧾 Invoice</a>{% endif %}
                 {% if perms.crm.view_report %}<a href="{% url 'report_list' %}" class="block py-1 text-blue-700 hover:underline font-semibold">📊 Reports</a>{% endif %}
             </div>
@@ -316,6 +323,7 @@ function closeWelcomePopup() {
 </script>
 
 <!-- Scripts -->
+{{ quotation_status|json_script:"quotationStatusData" }}
 <script>
     // Sidebar collapse
     function collapseSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); }
@@ -379,16 +387,18 @@ function closeWelcomePopup() {
         document.getElementById("motivation").textContent = messages[Math.floor(Math.random()*messages.length)];
     });
 
-    
     // Charts
-    new Chart(document.getElementById('quotationStatusChart'), {
-        type:'doughnut',
-        data:{
-            labels:[{% for q in quotation_status %}"{{ q.status }}",{% endfor %}],
-            datasets:[{data:[{% for q in quotation_status %}{{ q.count }},{% endfor %}], backgroundColor:['#3B82F6','#10B981','#EF4444','#F59E0B']}]
-        },
-        options:{plugins:{legend:{position:'bottom'}}}
-    });
+        // Build a JS array from server-side data using json_script to avoid template parsing issues
+                const quotationStatus = JSON.parse(document.getElementById('quotationStatusData').textContent);
+    
+        new Chart(document.getElementById('quotationStatusChart'), {
+            type: 'doughnut',
+            data: {
+                labels: quotationStatus.map(item => item.status),
+                datasets: [{ data: quotationStatus.map(item => item.count), backgroundColor: ['#3B82F6','#10B981','#EF4444','#F59E0B'] }]
+            },
+            options: { plugins: { legend: { position: 'bottom' } } }
+        });
 
     new Chart(document.getElementById('sourceChart'), {
         type:'bar',

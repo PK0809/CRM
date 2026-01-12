@@ -1,0 +1,78 @@
+﻿{% extends 'base.html' %}
+
+{% block content %}
+<div class="bg-gray-100 p-6 min-h-screen">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">Delivery Challans</h1>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white shadow border border-gray-300 rounded text-sm">
+            <thead class="bg-indigo-100 text-indigo-900 uppercase">
+                <tr>
+                    <th class="px-4 py-2 border">DC No</th>
+                    <th class="px-4 py-2 border text-center">DC Date</th>
+                    <th class="px-4 py-2 border text-center">Quote No</th>
+                    <th class="px-4 py-2 border">Company</th>
+                    <th class="px-4 py-2 border text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dc in dcs %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-2 border font-mono text-indigo-700">
+                        {{ dc.dc_no }}
+                    </td>
+
+                    <td class="px-4 py-2 border text-center">
+                        {{ dc.dc_date }}
+                    </td>
+
+                    <td class="px-4 py-2 border text-center">
+                        {{ dc.estimation.quote_no }}
+                    </td>
+
+                    <td class="px-4 py-2 border">
+                        {{ dc.estimation.company_name }}
+                    </td>
+
+                    <td class="px-4 py-2 border text-center space-x-3">
+                        <!-- View PDF -->
+                        <a href="{% url 'dc_pdf' dc.id %}"
+                            target="_blank"
+                            class="text-blue-600 hover:underline">
+                            📄 View PDF
+                            </a>
+
+
+                        <!-- Edit DC -->
+                        <a href="{% url 'edit_dc' dc.id %}"
+                           class="text-green-600 hover:underline">
+                            ✏️ Edit
+                        </a>
+
+                        <!-- Delete DC -->
+                        <form method="POST"
+                              action="{% url 'delete_dc' dc.id %}"
+                              class="inline"
+                              onsubmit="return confirm('Are you sure you want to delete this Delivery Challan?');">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="text-red-600 hover:underline">
+                                🗑 Delete
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-gray-500 py-4">
+                        No Delivery Challans found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

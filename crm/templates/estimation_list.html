@@ -54,7 +54,13 @@
                     </td>
                     <td class="px-4 py-2 border text-center">{{ est.quote_date }}</td>
                     <td class="px-4 py-2 border text-center">{{ est.company_name }}</td>
-                    <td class="px-4 py-2 border text-center">#{{ est.lead_no.id|stringformat:"04d" }}</td>
+                    <td class="px-4 py-2 border text-center">
+                        {% if est.lead_no %}
+                            {{ est.lead_no.lead_no }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
                     <td class="px-4 py-2 border text-center">₹{{ est.total }}</td>
                     <td class="px-4 py-2 border text-center">
                         {% if est.status == "Approved" %}<span class="text-green-600 font-semibold">{{ est.status }}</span>
@@ -65,29 +71,76 @@
                     </td>
                     <td class="px-4 py-2 border text-center">{{ est.follow_up_date|default:"—" }}</td>
                     <td class="px-4 py-2 border text-center">{{ est.follow_up_remarks|default:"—" }}</td>
-                    <td class="px-4 py-2 border text-center relative">
+                    <td class="px-4 py-2 border text-center relative overflow-visible">
                         <div class="inline-block text-left">
-                            <div class="relative inline-block text-left" id="action-{{ est.id }}">
-                                <button onclick="event.stopPropagation(); toggleDropdown({{ est.id }})"
-                                        class="text-lg hover:text-blue-600" title="Actions">
-                                    👁️
-                                </button>
-                                <div id="dropdown-{{ est.id }}" class="dropdown hidden absolute right-0 mt-2 w-40 bg-white border rounded shadow z-10">
-                                    {% if est.status == "Approved" or est.status == "Invoiced" %}
-                                    <div class="block px-4 py-2 text-gray-500 cursor-not-allowed">
-                                        {% if est.status == "Approved" %}✔️ Approved{% else %}📦 Invoiced{% endif %}
-                                    </div>
-                                    <div class="block px-4 py-2 text-gray-400 text-sm cursor-not-allowed">🔒 Read-only</div>
-                                    {% elif est.status == "Lost" %}
-                                    <div class="block px-4 py-2 text-gray-500 cursor-not-allowed">❌ Lost</div>
-                                    <div class="block px-4 py-2 text-gray-400 text-sm cursor-not-allowed">{{ est.lost_reason }}</div>
-                                    {% else %}
-                                    <a href="{% url 'estimation_edit' est.id %}" class="block px-4 py-2 hover:bg-gray-100 text-sm">✏️ Edit</a>
-                                    <a href="{% url 'approve_estimation' est.id %}" class="block px-4 py-2 text-white text-sm bg-green-600 rounded hover:bg-green-700 shadow">✅ Approve</a>
-                                    <button onclick="openReviewModal({{ est.id }})" class="block w-full text-left px-4 py-2 hover:bg-yellow-100 text-sm">🕵️ Under Review</button>
-                                    <button onclick="openLostReasonModal({{ est.id }})" class="block w-full text-left px-4 py-2 hover:bg-red-100 text-sm">❌ Lost</button>
+                            <button onclick="toggleDropdown('{{ est.id }}')"
+                                    class="text-lg hover:text-blue-600"
+                                    title="Actions">
+                                👁️
+                            </button>
+
+                            <div id="dropdown-{{ est.id }}"
+                                class="dropdown hidden absolute right-0 mt-2 w-44 bg-white border rounded shadow z-20">
+
+                                {# Treat Pending + Under Review as same #}
+                                {% with est.status as s %}
+                                {% if s == "Pending" or s == "Under Review" %}
+
+                                    {# 🚚 Delivery Challan #}
+                                    <a href="{% url 'create_dc' est.id %}"
+                                    class="block px-4 py-2 hover:bg-indigo-100 text-sm">
+                                        🚚 Delivery Challan
+                                    </a>
+                                    <div class="border-t my-1"></div>
+
+                                    {# ✏️ Edit #}
+                                    <a href="{% url 'estimation_edit' est.id %}"
+                                    class="block px-4 py-2 hover:bg-gray-100 text-sm">
+                                        ✏️ Edit
+                                    </a>
+
+                                    {# ✅ Approve #}
+                                    <a href="{% url 'approve_estimation' est.id %}"
+                                    class="block px-4 py-2 text-white text-sm bg-green-600 rounded hover:bg-green-700">
+                                        ✅ Approve
+                                    </a>
+
+                                    {% if est.status == "Pending" or est.status == "Under Review" %}
+                                    <button onclick="openReviewModal('{{ est.id }}')"
+                                            class="block w-full text-left px-4 py-2 hover:bg-yellow-100 text-sm">
+                                        🕵️ Under Review
+                                    </button>
                                     {% endif %}
-                                </div>
+
+
+                                    {# ❌ Lost #}
+                                    <button onclick="openLostReasonModal('{{ est.id }}')"
+                                            class="block w-full text-left px-4 py-2 hover:bg-red-100 text-sm">
+                                        ❌ Lost
+                                    </button>
+
+                                {% elif s == "Approved" or s == "Invoiced" %}
+
+                                    {# 🚚 Delivery Challan #}
+                                    <a href="{% url 'create_dc' est.id %}"
+                                    class="block px-4 py-2 hover:bg-indigo-100 text-sm">
+                                        🚚 Delivery Challan
+                                    </a>
+
+                                {% elif s == "Lost" %}
+
+                                    <div class="block px-4 py-2 text-gray-500 cursor-not-allowed">
+                                        ❌ Lost
+                                    </div>
+                                    {% if est.lost_reason %}
+                                        <div class="block px-4 py-2 text-gray-400 text-sm">
+                                            {{ est.lost_reason }}
+                                        </div>
+                                    {% endif %}
+
+                                    {% endif %}
+                                    {% endwith %}
+
                             </div>
                         </div>
                     </td>
@@ -158,10 +211,22 @@
 
 <script>
     function toggleDropdown(id) {
-        document.querySelectorAll('.dropdown').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.dropdown').forEach(el => {
+            if (el.id !== 'dropdown-' + id) {
+                el.classList.add('hidden');
+            }
+        });
+
         const dropdown = document.getElementById('dropdown-' + id);
-        if (dropdown) dropdown.classList.toggle('hidden');
+        dropdown.classList.toggle('hidden');
     }
+
+    document.addEventListener('click', function (event) {
+        if (!event.target.closest('[id^="dropdown-"]') &&
+            !event.target.closest('button')) {
+            document.querySelectorAll('.dropdown').forEach(el => el.classList.add('hidden'));
+        }
+    });
 
     function filterEstimationsTable() {
         const input = document.getElementById("estimationSearch");

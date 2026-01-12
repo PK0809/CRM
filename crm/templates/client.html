@@ -147,6 +147,13 @@
           {% if perms.crm.view_estimation %}
           <a href="/estimation/" class="block py-1 text-blue-600 hover:underline font-semibold">📐 Estimation</a>
           {% endif %}
+          {# ✅ DELIVERY CHALLAN MENU #}
+                    {% if perms.crm.view_deliverychallan %}
+                    <a href="{% url 'dc_list' %}"
+                    class="block py-1 text-blue-600 hover:underline font-semibold">
+                        🚚 Delivery Challan
+                    </a>
+                    {% endif %}
           {% if perms.crm.view_invoice %}
           <a href="/invoices/" class="block py-1 text-blue-600 hover:underline font-semibold">🧾 Invoice</a>
           {% endif %}
