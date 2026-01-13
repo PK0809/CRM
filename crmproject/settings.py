@@ -18,16 +18,27 @@ environ.Env.read_env(env_file=BASE_DIR / ".env")
 SECRET_KEY = env("SECRET_KEY", default="unsafe-secret-key")
 
 # Debug & Hosts
+# Debug
 DEBUG = env.bool("DEBUG", default=False)
+
+# Allowed hosts
 ALLOWED_HOSTS = env.list(
     "ALLOWED_HOSTS",
-    CSRF_TRUSTED_ORIGINS = [
+    default=[
         "crm.isecuresolutions.in",
         "www.crm.isecuresolutions.in",
         "isecuresolutions.in",
         "www.isecuresolutions.in",
     ],
 )
+
+# CSRF trusted origins (MUST include https://)
+CSRF_TRUSTED_ORIGINS = [
+    "https://crm.isecuresolutions.in",
+    "https://www.crm.isecuresolutions.in",
+    "https://isecuresolutions.in",
+    "https://www.isecuresolutions.in",
+]
 
 # Custom User Model
 AUTH_USER_MODEL = "crm.User"
@@ -118,6 +129,7 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Kolkata"
 USE_I18N = True
 USE_TZ = True
+
 
 
 
