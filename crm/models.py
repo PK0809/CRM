@@ -271,11 +271,7 @@ class DeliveryChallan(models.Model):
     contact_number = models.CharField(max_length=15)
 
     # ✅ REQUIRED FOR YOUR CREATE_DC VIEW
-    po_no = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True
-    )
+    po_no = models.CharField(max_length=100, blank=True, null=True)
     po_date = models.DateField(blank=True, null=True)
 
     terms = models.TextField(
