@@ -1182,116 +1182,100 @@ def create_quotation(request):
     })
 
 
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.views import View
-from datetime import timedelta
-from pathlib import Path
-from weasyprint import HTML
 from django.conf import settings
-from .models import Estimation, EstimationItem, TermsAndConditions
-from .utils import inr_currency_words
+from datetime import timedelta
+from decimal import Decimal  # ✅ REQUIRED
+from weasyprint import HTML
 
-def quotation_pdf(request, pk):
-    estimation = get_object_or_404(Estimation, pk=pk)
-    terms_obj = TermsAndConditions.objects.last()
-    terms = terms_obj.content if terms_obj else (estimation.terms_conditions or "")
-    items = estimation.items.all()
-    return render(request, "quotation_pdf.html", {
-        'estimation': estimation,
-        'items': items,
-        'terms': terms,
-        'discount': estimation.discount or 0,
-        'total_after_discount': estimation.total or 0
-    })
+from .models import Estimation, TermsAndConditions
+from .utils import inr_currency_words
 
 
 class QuotationPDFView(View):
     def get(self, request, pk):
         estimation = get_object_or_404(Estimation, pk=pk)
 
-        items = [
-            {
-                'item_details': item.item_details,
-                'hsn_sac': item.hsn_sac or "",
-                'quantity': item.quantity,
-                'uom': item.uom,
-                'rate': item.rate,
-                'tax': item.tax,
-                'amount': item.amount,
-            } for item in estimation.items.all()
-        ]
+        # Items
+        items = estimation.items.all()
 
-        sub_total = estimation.sub_total or 0
-        discount = estimation.discount or 0
-
-        # Calculate taxable value after discount
+        sub_total = estimation.sub_total or Decimal("0")
+        discount = estimation.discount or Decimal("0")
         taxable_value = sub_total - discount
 
-        # GST calculation
-        GST_RATE = getattr(settings, "GST_RATE", 18)
-        OUR_GST_STATE = getattr(settings, "GST_STATE_CODE", "29")
-
-        # normalize GST rate for calculations
+        # GST
         gst_rate = Decimal("18")
         gst_amount = (taxable_value * gst_rate) / Decimal("100")
 
-        # Split GST based on state
+        OUR_GST_STATE = getattr(settings, "GST_STATE_CODE", "29")
         company_gst_state = (estimation.gst_no or "").strip()[:2]
-        our_gst_state = OUR_GST_STATE
-        same_state = company_gst_state == our_gst_state
+        same_state = company_gst_state == OUR_GST_STATE
 
         if same_state:
             cgst = sgst = gst_amount / 2
             cgst_rate = sgst_rate = gst_rate / 2
-            igst = 0
-            igst_rate = 0
+            igst = Decimal("0")
+            igst_rate = Decimal("0")
         else:
-            cgst = sgst = 0
+            cgst = sgst = Decimal("0")
             igst = gst_amount
-            cgst_rate = sgst_rate = 0
+            cgst_rate = sgst_rate = Decimal("0")
             igst_rate = gst_rate
 
-        # Total after discount + GST
         total = taxable_value + gst_amount
 
         # Terms & expiry
-        terms_obj = TermsAndConditions.objects.order_by('-id').first()
-        terms_content = terms_obj.content if terms_obj else (estimation.terms_conditions or "")
+        terms_obj = TermsAndConditions.objects.order_by("-id").first()
+        terms = terms_obj.content if terms_obj else (estimation.terms_conditions or "")
         expiry_date = estimation.quote_date + timedelta(days=estimation.validity_days or 0)
+
         amount_in_words = inr_currency_words(total)
 
-        # Logo
-        logo_path = Path(settings.STATIC_ROOT) / "images/logo.png"
-        logo_uri = logo_path.as_uri()
+        # ✅ ABSOLUTE STATIC URL (THIS FIXES PROD)
+        logo_uri = request.build_absolute_uri(
+            settings.STATIC_URL + "images/logo.png"
+        )
 
         context = {
-            'estimation': estimation,
-            'items': items,
-            'sub_total': sub_total,
-            'discount': discount,
-            'taxable_value': taxable_value,
-            'gst_amount': gst_amount,
-            'total': total,
-            'same_state': same_state,
-            'cgst': cgst,
-            'sgst': sgst,
-            'igst': igst,
-            'cgst_rate': cgst_rate,
-            'sgst_rate': sgst_rate,
-            'igst_rate': igst_rate,
-            'terms': terms_content,
-            'expiry_date': expiry_date,
-            'amount_in_words': amount_in_words,
-            'logo_uri': logo_uri,
+            "estimation": estimation,
+            "items": items,
+            "sub_total": sub_total,
+            "discount": discount,
+            "taxable_value": taxable_value,
+            "gst_amount": gst_amount,
+            "total": total,
+            "same_state": same_state,
+            "cgst": cgst,
+            "sgst": sgst,
+            "igst": igst,
+            "cgst_rate": cgst_rate,
+            "sgst_rate": sgst_rate,
+            "igst_rate": igst_rate,
+            "terms": terms,
+            "expiry_date": expiry_date,
+            "amount_in_words": amount_in_words,
+            "logo_uri": logo_uri,
         }
 
-        html_string = render_to_string('quotation_pdf_template.html', context)
-        pdf = HTML(string=html_string, base_url=settings.STATIC_ROOT.as_uri()).write_pdf()
-        response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename=Quotation_{estimation.quote_no}.pdf'
+        html_string = render_to_string(
+            "quotation_pdf_template.html",
+            context
+        )
+
+        pdf = HTML(
+            string=html_string,
+            base_url=request.build_absolute_uri("/")  # ✅ REQUIRED
+        ).write_pdf()
+
+        response = HttpResponse(pdf, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'inline; filename="Quotation_{estimation.quote_no}.pdf"'
+        )
         return response
+
     
 import logging
 from decimal import Decimal
