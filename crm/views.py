@@ -1958,8 +1958,9 @@ def dc_pdf(request, pk):
     logo_uri = ""
     try:
         if getattr(settings, "STATIC_ROOT", None):
-            logo_path = Path(settings.STATIC_ROOT) / "images" / "logo.png"
-            logo_uri = logo_path.resolve().as_uri()
+            logo_uri = request.build_absolute_uri(
+                settings.STATIC_URL + "images/logo.png"
+            )
         else:
             # Fallback to BASE_DIR/static/images/logo.png if STATIC_ROOT not set
             logo_path = Path(settings.BASE_DIR) / "static" / "images" / "logo.png"
