@@ -1,291 +1,193 @@
-﻿{% load static %}{% spaceless %}
+{% load static %}
+{% spaceless %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <style>
-        @page {
-            margin: 20px;
-        }
+<meta charset="UTF-8">
 
-        body {
-            font-family: 'Arial', sans-serif;
-            font-size: 11px;
-            margin: 0;
-            padding: 0;
-            color: #000;
-        }
+<style>
+@page { margin: 20px; }
 
-        .header, .footer {
-            width: 100%;
-            border: 1px solid #999;
-            padding: 10px;
-        }
+body {
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    margin: 0;
+    color: #000;
+}
 
-        .header-table td {
-            vertical-align: top;
-            padding: 5px;
-        }
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
 
-        .quote-title {
-            text-align: right;
-            font-size: 20px;
-            font-weight: bold;
-        }
+td, th {
+    border: 1px solid #999;
+    padding: 6px;
+    vertical-align: top;
+}
 
-        .meta-table, .address-table, .items-table, .totals-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-            font-size: 11px;
-        }
+.items-table th {
+    background: #f3f3f3;
+}
 
-            .meta-table td, .address-table td, .items-table th, .items-table td, .totals-table td {
-                border: 1px solid #999;
-                padding: 6px;
-                vertical-align: top;
-            }
-
-            .items-table th {
-                background: #f3f3f3;
-                text-align: left;
-            }
-
-        .bank-details, .terms {
-            font-size: 10px;
-            margin-top: 10px;
-        }
-
-        .signature {
-            margin-top: 30px;
-            text-align: right;
-            font-weight: bold;
-        }
-
-        .section-title {
-            font-weight: bold;
-            text-decoration: underline;
-            margin-top: 15px;
-        }
-
-        .totals-table {
-        border-collapse: collapse;
-        }
-        .totals-table td {
-        vertical-align: baseline;
-        line-height: 1.1;               /* tighter lines to remove the gap */
-        padding-top: 4px;                /* reduce extra top/bottom space */
-        padding-bottom: 4px;
-        }
-        .totals-table .totals-left {       /* the rowspan cell with Total In Words */
-        vertical-align: baseline;        /* or 'top' if baseline support varies */
-        }
-        .totals-table .totals-left .label { 
-        line-height: 1.1; 
-        margin: 0; 
-        display: inline;                 /* avoid block-level extra line-height */
-        }
-        .totals-table .tax-row td {
-        padding-top: 4px;
-        padding-bottom: 4px;
-        }
-
-    </style>
+table, tr, td, th {
+    page-break-inside: avoid;
+}
+</style>
 </head>
+
 <body>
 
-    <!-- Header -->
-    <table style="width: 100%; border: 1px solid #999; border-collapse: collapse; margin-bottom: 10px;">
-        <tr>
-            <td style="width: 25%; padding: 10px; text-align: center; vertical-align: middle; border-right: 1px solid #999;">
-                <img src="{{ logo_uri }}" style="width:180px; height:auto;">
-            </td>
-            <td style="width: 50%; padding: 10px; text-align: center; font-size: 13px; line-height: 1.5; border-right: 1px solid #999;">
-                <strong style="font-size: 20px;">iSecure Solutions</strong>
-                <span style="font-size: 13px;">, a Brand of B16Ventures</span><br>
-                <span style="font-size: 12px;">
-                #60 Swarupa, 5th West Cr, Riches Garden, RM Nagar,<br>
-                Bangalore 560016 | Ph: 916 916 8216<br>
-                support@isecuresolutions.in | www.isecuresolutions.in<br>
-                GSTIN: 29AVXPP2341P1ZJ
-                </span>
-            </td>
-            <td style="width: 25%; text-align: center; vertical-align: middle;">
-                <div style="font-size: 25px; font-weight: bold;">QUOTE</div>
-            </td>
-        </tr>
-    </table>
+<!-- HEADER -->
+<table>
+<tr>
+<td style="width:25%; text-align:center;">
+    {% if logo_uri %}
+        <img src="{{ logo_uri }}" style="width:170px;">
+    {% endif %}
+</td>
+<td style="width:50%; text-align:center;">
+    <strong style="font-size:18px;">iSecure Solutions</strong><br>
+    a Brand of B16Ventures<br>
+    #60 Swarupa, 5th West Cr, Riches Garden, RM Nagar<br>
+    Bangalore 560016 | Ph: 916 916 8216<br>
+    support@isecuresolutions.in | www.isecuresolutions.in<br>
+    GSTIN: 29AVXPP2341P1ZJ
+</td>
+<td style="width:25%; text-align:center; font-size:22px; font-weight:bold;">
+    QUOTE
+</td>
+</tr>
+</table>
 
-    <!-- Estimate Info -->
-    <table class="meta-table">
-        <tr>
-            <td style="text-align:center; font-size:13px;">
-            <strong>Estimate Number:</strong> {{ estimation.quote_no }}
-            </td>
-            <td style="text-align:center; font-size:13px;">
-            <strong>Estimate Date:</strong> {{ estimation.quote_date|date:"d/m/Y" }}
-            </td>
-            <td style="text-align:center; font-size:13px;">
-            <strong>Expiry Date:</strong> {{ expiry_date|date:"d/m/Y" }}
-            </td>
-        </tr>
-        </table>
+<!-- META -->
+<table style="margin-top:8px;">
+<tr>
+<td style="text-align:center;"><strong>Estimate No:</strong> {{ estimation.quote_no }}</td>
+<td style="text-align:center;"><strong>Date:</strong> {{ estimation.quote_date|date:"d/m/Y" }}</td>
+<td style="text-align:center;"><strong>Expiry:</strong> {{ expiry_date|date:"d/m/Y" }}</td>
+</tr>
+</table>
 
-   <!-- Address Section -->
-    <table class="address-table" style="width:100%; border-collapse: collapse; margin-top:6px;">
-        <tr>
-            <!-- Bill To -->
-            <td style="
-                width:50%;
-                vertical-align: top;
-                padding:6px 8px;
-                font-size:11px;
-                line-height:1.3;
-                border:1px solid #999;
-            ">
-                <strong>Bill To:</strong>
+<!-- ADDRESS -->
+<table style="margin-top:6px;">
+<tr>
+<td style="width:50%; line-height:1.3;">
+<strong>Bill To:</strong><br>
+<b>{{ estimation.company_name }}</b><br>
+{{ estimation.billing_address|linebreaksbr }}<br>
+GSTIN: {{ estimation.gst_no|default_if_none:"—" }}
+</td>
 
-                <div style="font-weight:bold; margin-top:4px;">
-                    {{ estimation.company_name }}
-                </div>
+<td style="width:50%; line-height:1.3;">
+<strong>Ship To:</strong><br>
+<b>{{ estimation.company_name }}</b><br>
+{{ estimation.shipping_address|linebreaksbr }}
+</td>
+</tr>
+</table>
 
-                <div style="margin-top:2px;">
-                    {{ estimation.billing_address|linebreaksbr }}
-                </div>
+<!-- ITEMS -->
+<table class="items-table" style="margin-top:8px;">
+<thead>
+<tr>
+<th>#</th>
+<th>Description</th>
+<th>HSN/SAC</th>
+<th>Qty</th>
+<th>UOM</th>
+<th>Rate</th>
+<th>Tax %</th>
+<th>Amount</th>
+</tr>
+</thead>
+<tbody>
+{% for item in items %}
+<tr>
+<td>{{ forloop.counter }}</td>
+<td>{{ item.item_details }}</td>
+<td style="text-align:center;">{{ item.hsn_sac|default:"—" }}</td>
+<td style="text-align:center;">{{ item.quantity }}</td>
+<td style="text-align:center;">{{ item.uom }}</td>
+<td style="text-align:right;">{{ item.rate|floatformat:2 }}</td>
+<td style="text-align:center;">{{ item.tax|floatformat:0 }}%</td>
+<td style="text-align:right;">{{ item.amount|floatformat:2 }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
 
-                <div style="margin-top:2px;">
-                    GSTIN: {{ estimation.gst_no|default_if_none:"—" }}
-                </div>
-            </td>
+<!-- TOTALS -->
+<table style="margin-top:8px;">
+<tr>
+<td style="width:80%;">
+<strong>Total In Words:</strong><br>
+{{ amount_in_words }}
+</td>
+<td>Sub Total</td>
+<td style="text-align:right;">{{ estimation.sub_total|floatformat:2 }}</td>
+</tr>
 
-            <!-- Ship To -->
-            <td style="
-                width:50%;
-                vertical-align: top;
-                padding:6px 8px;
-                font-size:11px;
-                line-height:1.3;
-                border:1px solid #999;
-            ">
-                <strong>Ship To:</strong>
+{% if discount > 0 %}
+<tr>
+<td></td>
+<td>Discount</td>
+<td style="text-align:right;">- {{ discount|floatformat:2 }}</td>
+</tr>
+{% endif %}
 
-                <div style="font-weight:bold; margin-top:4px;">
-                    {{ estimation.company_name }}
-                </div>
+{% if same_state %}
+<tr>
+<td></td>
+<td>CGST ({{ cgst_rate|floatformat:"g" }}%)</td>
+<td style="text-align:right;">{{ cgst|floatformat:2 }}</td>
+</tr>
+<tr>
+<td></td>
+<td>SGST ({{ sgst_rate|floatformat:"g" }}%)</td>
+<td style="text-align:right;">{{ sgst|floatformat:2 }}</td>
+</tr>
+{% else %}
+<tr>
+<td></td>
+<td>IGST ({{ igst_rate|floatformat:"g" }}%)</td>
+<td style="text-align:right;">{{ igst|floatformat:2 }}</td>
+</tr>
+{% endif %}
 
-                <div style="margin-top:2px;">
-                    {{ estimation.shipping_address|linebreaksbr }}
-                </div>
-            </td>
-        </tr>
-    </table>
+<tr>
+<td></td>
+<td><strong>Total</strong></td>
+<td style="text-align:right;"><strong>{{ total|floatformat:2 }}</strong></td>
+</tr>
+</table>
 
-    <!-- Items Table -->
-    <table class="items-table">
-        <thead>
-            <tr>
-                <th style="width: 3%;">#</th>
-                <th style="width: 45%;">Description</th>
-                <th style="width:10%; text-align:center;">HSN/SAC</th>
-                <th style="width: 7%; text-align: center;">Qty</th>
-                <th style="width:6%; text-align:center;">UOM</th>
-                <th style="width: 8%; text-align: right;">Rate</th>
-                <th style="width: 8%; text-align: center;">Tax %</th>
-                <th style="width: 10%; text-align: right;">Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in items %}
-            <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>{{ item.item_details }}</td>
-                <td style="text-align:center;">
-                    {% if item.hsn_sac %}{{ item.hsn_sac }}{% else %}—{% endif %}
-                </td>
-                <td style="text-align:center;">{{ item.quantity }}</td>
-                <td style="text-align:center;">{{ item.uom }}</td>
-                <td style="text-align:right;">{{ item.rate }}</td>
-                <td style="text-align:center;">{{ item.tax|floatformat:0 }}%</td>
-                <td style="text-align:right;">{{ item.amount }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="7">No items found</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<!-- BANK + TERMS -->
+<table style="margin-top:12px;">
+<tr>
+<td style="width:38%;">
+<strong>Bank Details</strong><br>
+Name: B16 VENTURES<br>
+A/C No: 233005001741<br>
+IFSC: ICIC0002330<br>
+ICICI Bank, TC Palya
+</td>
+<td style="width:4%; border:none;"></td>
+<td style="width:58%;">
+<strong>Terms & Conditions</strong><br>
+{{ estimation.terms_conditions|safe }}
+</td>
+</tr>
+</table>
 
+<div style="margin-top:20px; text-align:right;">
+<strong>For iSecure Solutions</strong>
+</div>
 
-    <!-- Totals -->
-    <table class="totals-table">
-        <tr>
-            <td width="80%" rowspan="5" style="text-align:left; vertical-align:middle;">
-                <span style="font-weight:bold; font-size:12px;">Total In Words:</span> {{ amount_in_words }}
-            </td>
-            <td style="font-size:12px;">Sub Total</td>
-            <td style="text-align: right;font-size:12px;">{{ estimation.sub_total }}</td>
-        </tr>
+<div style="margin-top:25px; text-align:center; font-size:10px; font-style:italic;">
+*Computer Generated Quotation. Signature & Stamp Not Required.
+</div>
 
-        {% if discount > 0 %}
-        <tr>
-            <td>Discount</td>
-            <td style="text-align: right;">- {{ discount|floatformat:2 }}</td>
-        </tr>
-        {% endif %}
-
-        {% if same_state %}
-        <tr>
-            <td>CGST ({{ cgst_rate|floatformat:"g" }}%)</td>
-            <td style="text-align: right;">{{ cgst }}</td>
-        </tr>
-        <tr>
-            <td>SGST ({{ sgst_rate|floatformat:"g" }}%)</td>
-            <td style="text-align: right;">{{ sgst }}</td>
-        </tr>
-        {% else %}
-        <tr>
-            <td>IGST ({{ igst_rate|floatformat:"g" }}%)</td>
-            <td style="text-align: right;">{{ igst }}</td>
-        </tr>
-        {% endif %}
-        <tr>
-            <td style="font-weight:bold; font-size:13px;">Total</td>
-            <td style="text-align:right; font-weight:bold; font-size:13px;">{{ total|floatformat:2 }}</td>
-        </tr>
-    </table>
-
-    <!-- Bank Details and Terms side by side -->
-    <table style="width:100%; margin-top:20px;">
-        <tr>
-            <!-- Bank Details Box -->
-            <td style="width:38%; vertical-align: top; padding:12px; border:1px solid #999; border-radius:5px;">
-                <strong>Bank Transfer Details</strong><br>
-                <br>Name: B16 VENTURES<br>
-                <br>A/C No: 233005001741 | IFSC: ICIC0002330<br>
-                <br>Bank: ICICI Bank | Branch: TC Palya, Bangalore<br>
-            </td>
-
-
-            <!-- Spacer -->
-            <td style="width:4%;"></td>
-
-            <!-- Terms & Conditions Box -->
-            <td style="width:58%; vertical-align: top; padding:12px; border:1px solid #999; border-radius:5px;">
-                <strong>Terms & Conditions</strong><br>
-                <div style="font-size:10px; line-height:16px; text-align:justify;">
-                    {{ estimation.terms_conditions|safe }}
-                </div>
-            </td>
-        </tr>
-    </table>
-
-    <!-- Signature -->
-    <div class="signature">For iSecure Solutions</div>
 </body>
 </html>
 {% endspaceless %}
-
-
-
-<div style="text-align: center; font-size: 10px; margin-top: 30px; font-style: italic; color: #555;">
-    *Computer Generated Quotation. Signature & Stamp Not Required.
-</div>
