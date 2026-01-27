@@ -674,8 +674,6 @@ def edit_branch(request, branch_id):
 
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
-
-
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -807,7 +805,7 @@ def lead_create(request):
                     contact_person_name = branch.contact_person or ""
                     email = email or branch.email or ""
                     mobile = mobile or branch.mobile or ""
-                    address = address or branch.address or ""
+                    address = address or branch.address
 
             # ✅ If no branch or missing data → fallback to client details
             if not branch:
@@ -1138,12 +1136,13 @@ def create_quotation(request):
                     request.POST.getlist('item_details[]'),
                     request.POST.getlist('hsn_sac[]'),
                     request.POST.getlist('quantity[]'),
+                    request.POST.getlist('uom[]'),
                     request.POST.getlist('rate[]'),
                     request.POST.getlist('tax[]'),
                     request.POST.getlist('amount[]'),
                 )
 
-                for detail, hsn, qty, rate, tax, amt in items:
+                for detail, hsn, qty, uom, rate, tax, amt in items:
                     detail_clean = (detail or "").strip()
                     if not detail_clean:
                         continue
@@ -1152,6 +1151,7 @@ def create_quotation(request):
                         item_details=detail_clean,
                         hsn_sac=((hsn or "").strip() or None),
                         quantity=int(qty or 0),
+                        uom=uom or "Nos",
                         rate=safe_decimal(rate),
                         tax=safe_decimal(tax),
                         amount=safe_decimal(amt),
@@ -1216,6 +1216,7 @@ class QuotationPDFView(View):
                 'item_details': item.item_details,
                 'hsn_sac': item.hsn_sac or "",
                 'quantity': item.quantity,
+                'uom': item.uom,
                 'rate': item.rate,
                 'tax': item.tax,
                 'amount': item.amount,
@@ -1408,17 +1409,19 @@ def edit_estimation(request, pk):
                 details = request.POST.getlist('item_details[]')
                 hsns = request.POST.getlist('hsn_sac[]')
                 qtys = request.POST.getlist('quantity[]')
+                uoms = request.POST.getlist('uom[]') 
                 rates = request.POST.getlist('rate[]')
                 taxes = request.POST.getlist('tax[]')
                 amts = request.POST.getlist('amount[]')
 
-                for detail, hsn, qty, rate, tax, amt in zip(details, hsns, qtys, rates, taxes, amts):
+                for detail, hsn, qty, uom, rate, tax, amt in zip(details, hsns, qtys, uoms, rates, taxes, amts):
                     if str(detail).strip():
                         EstimationItem.objects.create(
                             estimation=updated,
                             item_details=str(detail).strip(),
                             hsn_sac=(hsn or "").strip() or None,
                             quantity=int(qty or 0),
+                            uom=uom or "Nos",
                             rate=_d(rate),
                             tax=_d(tax),
                             amount=_d(amt),
