@@ -1425,7 +1425,7 @@ def edit_estimation(request, pk):
                         )
 
                 logger.info(f"✅ Estimation {updated.quote_no} updated successfully.")
-                return redirect('estimation_view')
+                return redirect('estimation_list')
 
         except Exception as e:
             logger.exception("Error saving estimation %s", estimation.pk)
