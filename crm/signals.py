@@ -5,33 +5,33 @@ from .models import UserProfile
 import logging
 
 logger = logging.getLogger(__name__)
-
 User = get_user_model()
 
 
 @receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
+def create_or_update_user_profile(sender, instance, created, **kwargs):
     """
-    Automatically create a UserProfile when a new User is created.
-    This will NOT cause recursive save() calls.
+    Create or update UserProfile safely.
+    - Creates profile if missing
+    - Updates basic fields
+    - NEVER raises exception in production
     """
+
     try:
-        if created:
-            # Create profile only for new users
-            UserProfile.objects.create(
-                user=instance,
-                name=instance.get_full_name() or instance.username,
-                phone_number=getattr(instance, "mobile", ""),
-                role=getattr(instance, "role", "User"),
-            )
-            logger.info(f"✅ Created UserProfile for user: {instance.username}")
-        else:
-            # Update existing profile safely without recursion
-            profile, _ = UserProfile.objects.get_or_create(user=instance)
-            profile.name = instance.get_full_name() or instance.username
-            profile.role = getattr(instance, "role", "User")
-            profile.save(update_fields=["name", "role", "updated_at"])
-            logger.info(f"🔁 Updated UserProfile for user: {instance.username}")
+        profile, _ = UserProfile.objects.get_or_create(user=instance)
+
+        # Sync basic fields safely
+        profile.name = instance.get_full_name() or instance.username
+        profile.role = getattr(instance, "role", "User")
+        profile.phone_number = getattr(instance, "mobile", "") or ""
+
+        profile.save()
 
     except Exception as e:
-        logger.error(f"⚠️ Profile sync failed for user {getattr(instance, 'username', 'unknown')}: {e}")
+        # ✅ Log error but DO NOT crash production
+        logger.exception(
+            "UserProfile sync failed | user_id=%s username=%s error=%s",
+            instance.pk,
+            instance.username,
+            str(e),
+        )
