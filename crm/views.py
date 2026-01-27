@@ -1182,14 +1182,16 @@ def create_quotation(request):
     })
 
 
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.views import View
-from django.conf import settings
 from datetime import timedelta
-from decimal import Decimal  # ✅ REQUIRED
+from pathlib import Path
+from decimal import Decimal   # 🔥 REQUIRED
 from weasyprint import HTML
+from django.conf import settings
+from .models import Estimation
 
 from .models import Estimation, TermsAndConditions
 from .utils import inr_currency_words
