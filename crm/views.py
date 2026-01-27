@@ -1421,7 +1421,7 @@ def edit_estimation(request, pk):
                             item_details=str(detail).strip(),
                             hsn_sac=(hsn or "").strip() or None,
                             quantity=int(qty or 0),
-                            uom=uom or "Nos",
+                            uom=request.POST.getlist('uom[]')[i],
                             rate=_d(rate),
                             tax=_d(tax),
                             amount=_d(amt),
