@@ -82,6 +82,7 @@
                             <th class="px-3 py-2 border">Item Details</th>
                             <th class="px-3 py-2 border w-28">HSN/SAC</th>
                             <th class="px-3 py-2 border w-20">Qty</th>
+                            <th class="px-3 py-2 border w-16 text-center">UOM</th>
                             <th class="px-3 py-2 border w-24">Rate</th>
                             <th class="px-3 py-2 border w-24">Tax (%)</th>
                             <th class="px-3 py-2 border w-28">Amount</th>
@@ -99,6 +100,13 @@
                             </td>
                             <td class="border px-2 py-1">
                                 <input type="number" name="quantity[]" value="{{ item.quantity }}" min="0" class="w-full border rounded px-2 py-1" oninput="calculateTotal()">
+                            </td>
+                            <td class="border px-2 py-1 text-center">
+                                <select name="uom[]" class="w-full border rounded px-2 py-1">
+                                    <option value="Nos" {% if item.uom == "Nos" %}selected{% endif %}>Nos</option>
+                                    <option value="Box" {% if item.uom == "Box" %}selected{% endif %}>Box</option>
+                                    <option value="Meter" {% if item.uom == "Meter" %}selected{% endif %}>Meter</option>
+                                </select>
                             </td>
                             <td class="border px-2 py-1">
                                 <input type="number" name="rate[]" value="{{ item.rate }}" class="w-full border rounded px-2 py-1" oninput="calculateTotal()">
