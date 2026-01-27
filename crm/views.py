@@ -1237,9 +1237,8 @@ class QuotationPDFView(View):
         amount_in_words = inr_currency_words(total)
 
         # ✅ ABSOLUTE STATIC URL (THIS FIXES PROD)
-        logo_uri = request.build_absolute_uri(
-            settings.STATIC_URL + "images/logo.png"
-        )
+        logo_path = Path(settings.STATIC_ROOT) / "images/logo.png"
+        logo_uri = logo_path.as_uri()
 
         context = {
             "estimation": estimation,
