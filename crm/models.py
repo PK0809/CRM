@@ -227,16 +227,12 @@ class EstimationItem(models.Model):
     item_details = models.TextField()
     hsn_sac = models.CharField(max_length=20, blank=True, null=True)
     quantity = models.PositiveIntegerField()
-    UOM_CHOICES = [
+    OM_CHOICES = [
         ("Nos", "Nos"),
         ("Box", "Box"),
         ("Meter", "Meter"),
     ]
-    uom = models.CharField(
-        max_length=10,
-        choices=UOM_CHOICES,
-        default="Nos"
-    )
+    uom = models.CharField(max_length=10, choices=UOM_CHOICES, default="Nos")
     rate = models.DecimalField(max_digits=10, decimal_places=2)
     tax = models.DecimalField(max_digits=5, decimal_places=2)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
