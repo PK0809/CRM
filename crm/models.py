@@ -232,7 +232,6 @@ class EstimationItem(models.Model):
         ("Box", "Box"),
         ("Meter", "Meter"),
     ]
-
     uom = models.CharField(
         max_length=10,
         choices=UOM_CHOICES,
