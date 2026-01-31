@@ -1,0 +1,126 @@
+﻿{% extends "base.html" %}
+{% block content %}
+
+<div class="max-w-5xl mx-auto bg-white p-6 shadow rounded">
+    <h2 class="text-2xl font-bold mb-6">Edit Delivery Challan</h2>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <!-- DC INFO -->
+        <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+                <label class="font-semibold">DC Date</label>
+                <input type="date" name="dc_date"
+                       value="{{ dc.dc_date|date:'Y-m-d' }}"
+                       class="w-full border rounded p-2">
+            </div>
+
+            <div>
+                <label class="font-semibold">PO No</label>
+                <input type="text" name="po_no"
+                       value="{{ dc.po_no }}"
+                       class="w-full border rounded p-2">
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="font-semibold">Delivery Address</label>
+            <textarea name="delivery_address" rows="3"
+                      class="w-full border rounded p-2">{{ dc.delivery_address }}</textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div>
+                <label class="font-semibold">Contact Person</label>
+                <input type="text" name="contact_person"
+                       value="{{ dc.contact_person }}"
+                       class="w-full border rounded p-2">
+            </div>
+
+            <div>
+                <label class="font-semibold">Contact Number</label>
+                <input type="text" name="contact_number"
+                       value="{{ dc.contact_number }}"
+                       class="w-full border rounded p-2">
+            </div>
+        </div>
+
+        <!-- ITEMS -->
+        <h3 class="font-bold mb-2">Items</h3>
+
+        <table class="w-full border text-sm mb-6">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="border p-2">Description</th>
+                    <th class="border p-2 w-24">Qty</th>
+                    <th class="border p-2 w-24">UOM</th>
+                    <th class="border p-2 w-16">❌</th>
+                </tr>
+            </thead>
+            <tbody id="dcItemsBody">
+                {% for item in items %}
+                <tr>
+                    <td class="border p-2">
+                        <textarea name="description[]" rows="2"
+                            class="w-full border rounded p-1">{{ item.description }}</textarea>
+
+                        <input type="hidden" name="estimation_item_id[]"
+                            value="{{ item.estimation_item.id }}">
+                    </td>
+
+                    <td class="border p-2 text-center">
+                        <input type="number" name="quantity[]"
+                            value="{{ item.quantity }}"
+                            min="1"
+                            class="w-full border rounded p-1">
+                    </td>
+
+                    <td class="border p-2 text-center">
+                        <select name="uom[]" class="border rounded p-1">
+                            <option value="Nos" {% if item.uom == "Nos" %}selected{% endif %}>Nos</option>
+                            <option value="Box" {% if item.uom == "Box" %}selected{% endif %}>Box</option>
+                            <option value="Meter" {% if item.uom == "Meter" %}selected{% endif %}>Meter</option>
+                        </select>
+                    </td>
+
+                    <td class="border p-2 text-center">
+                        <button type="button"
+                                onclick="removeRow(this)"
+                                class="text-red-600 hover:text-red-800">
+                            🗑
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- TERMS -->
+        <div class="mb-6">
+            <label class="font-semibold">Terms</label>
+            <textarea name="terms" rows="3"
+                      class="w-full border rounded p-2">{{ dc.terms|striptags|linebreaksbr }}</textarea>
+        </div>
+
+        <!-- ACTIONS -->
+        <div class="flex justify-end gap-3">
+            <a href="{% url 'dc_list' %}"
+               class="bg-gray-200 px-4 py-2 rounded">Cancel</a>
+
+            <button type="submit"
+                    class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                Update DC
+            </button>
+        </div>
+        <script>
+        function removeRow(btn) {
+            const row = btn.closest('tr');
+            row.remove();
+        }
+        </script>
+
+    </form>
+</div>
+
+{% endblock %}
