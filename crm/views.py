@@ -733,29 +733,37 @@ def delete_branch(request, client_id, branch_id):
 
 
 
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from django.db.models import Exists, OuterRef
+
 @login_required
 def lead_list(request):
     search_query = request.GET.get('q', '')
-    leads = Lead.objects.all().order_by('-id')
+
+    # 🔹 Subquery: check if estimation exists for this lead
+    estimation_exists = Estimation.objects.filter(
+        lead_no=OuterRef('pk')
+    )
+
+    leads = (
+        Lead.objects
+        .annotate(has_estimation=Exists(estimation_exists))
+        .order_by('-id')
+    )
+
     if search_query:
         leads = leads.filter(company_name__company_name__icontains=search_query)
-    for lead in leads:
-        latest_estimation = Estimation.objects.filter(lead_no=lead).order_by('-id').first()
-        if latest_estimation:
-            if latest_estimation.status in ['Invoiced', 'Approved']:
-                lead.computed_status = 'Won'
-            elif latest_estimation.status == 'Pending':
-                lead.computed_status = 'Quoted'
-            elif latest_estimation.status == 'Lost':
-                lead.computed_status = 'Lost'
-            else:
-                lead.computed_status = 'Pending'
-        else:
-            lead.computed_status = 'Pending'
-        lead.save(update_fields=['computed_status'])
+
     paginator = Paginator(leads, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
-    return render(request, 'lead.html', {'leads': page_obj, 'page_obj': page_obj, 'clients': Client.objects.all(), 'query': search_query})
+
+    return render(request, 'lead.html', {
+        'leads': page_obj,
+        'page_obj': page_obj,
+        'clients': Client.objects.all(),
+        'query': search_query,
+    })
 
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -1181,7 +1189,6 @@ def create_quotation(request):
         'terms': default_terms_text,
     })
 
-
 from django.shortcuts import get_object_or_404, render
 from django.http import HttpResponse
 from django.template.loader import render_to_string
@@ -1212,9 +1219,14 @@ class QuotationPDFView(View):
         gst_rate = Decimal("18")
         gst_amount = (taxable_value * gst_rate) / Decimal("100")
 
+        customer_gst = (estimation.gst_no or "").strip()
         OUR_GST_STATE = getattr(settings, "GST_STATE_CODE", "29")
-        company_gst_state = (estimation.gst_no or "").strip()[:2]
-        same_state = company_gst_state == OUR_GST_STATE
+
+        if not customer_gst:
+            # ✅ GSTIN missing → CGST + SGST
+            same_state = True
+        else:
+            same_state = customer_gst[:2] == OUR_GST_STATE
 
         if same_state:
             cgst = sgst = gst_amount / 2
@@ -1223,8 +1235,8 @@ class QuotationPDFView(View):
             igst_rate = Decimal("0")
         else:
             cgst = sgst = Decimal("0")
-            igst = gst_amount
             cgst_rate = sgst_rate = Decimal("0")
+            igst = gst_amount
             igst_rate = gst_rate
 
         total = taxable_value + gst_amount
@@ -1239,6 +1251,7 @@ class QuotationPDFView(View):
         # ✅ ABSOLUTE STATIC URL (THIS FIXES PROD)
         logo_path = Path(settings.STATIC_ROOT) / "images/logo.png"
         logo_uri = logo_path.as_uri()
+      
 
         context = {
             "estimation": estimation,
@@ -1338,22 +1351,63 @@ def estimation_view(request):
         'current_sort': sort,
     })
 
+# Replace direct bs4 import with safe optional import and fallback
+try:
+    from bs4 import BeautifulSoup  # type: ignore
+    _HAS_BS4 = True
+except Exception:
+    _HAS_BS4 = False
+
+    # Minimal fallback using stdlib for simple <li> extraction.
+    from html import unescape
+    import re
+
+    def _extract_li_texts(html_text):
+        """
+        Very small fallback that extracts text from <li>...</li> blocks,
+        strips inner HTML tags and unescapes HTML entities.
+        Suitable for simple list-html produced/stored by this app.
+        """
+        if not html_text:
+            return []
+        # capture anything between <li ...> and </li> (multiline)
+        li_matches = re.findall(r'<li[^>]*>(.*?)</li>', html_text, flags=re.I | re.S)
+        results = []
+        for m in li_matches:
+            # remove any remaining tags inside the li
+            text = re.sub(r'<[^>]+>', '', m)
+            text = unescape(text).strip()
+            if text:
+                results.append(text)
+        return results
+
+
+def terms_html_to_text(html):
+    """
+    Converts <ul><li>...</li></ul> into plain text lines.
+    Uses BeautifulSoup when available, otherwise uses a safe fallback.
+    """
+    if not html:
+        return ""
+    if _HAS_BS4:
+        soup = BeautifulSoup(html, "html.parser")
+        return "\n".join(li.get_text(strip=True) for li in soup.find_all("li"))
+    else:
+        return "\n".join(_extract_li_texts(html))
+
 
 # ====================================================
 # Edit Estimation
 # ====================================================
 def edit_estimation(request, pk):
-    """
-    Edit an existing estimation and its related items.
-    """
     estimation = get_object_or_404(Estimation, pk=pk)
     clients = Client.objects.all()
     items = EstimationItem.objects.filter(estimation=estimation).order_by('id')
-
-    terms_obj = TermsAndConditions.objects.order_by('-id').first()
-    default_terms = terms_obj.content if terms_obj else estimation.terms_conditions or ""
-
     all_leads = Lead.objects.filter(company_name=estimation.company_name)
+
+    # 🔹 Convert stored HTML → plain text for edit screen
+    terms_plain = terms_html_to_text(estimation.terms_conditions)
+
     form = EstimationForm(request.POST or None, instance=estimation)
 
     if request.method == 'POST':
@@ -1364,46 +1418,55 @@ def edit_estimation(request, pk):
                     'estimation': estimation,
                     'clients': clients,
                     'items': items,
-                    'terms': default_terms,
                     'all_leads': all_leads,
+                    'terms_plain': terms_plain,
                     'error': "Please fix the highlighted errors.",
                 })
 
             with transaction.atomic():
                 updated = form.save(commit=False)
 
-                # Update related fields
+                # Basic fields
                 updated.company_name_id = request.POST.get('company_name') or estimation.company_name_id
                 updated.lead_no_id = request.POST.get('lead_no') or None
+                updated.quote_date = request.POST.get('quote_date') or updated.quote_date
+                updated.validity_days = request.POST.get('validity_days') or updated.validity_days
 
-                # Numeric fields
+                # Amount fields
                 updated.sub_total = _d(request.POST.get('sub_total'))
                 updated.discount = _d(request.POST.get('discount'))
                 updated.gst_amount = _d(request.POST.get('gst_amount'))
                 updated.total = _d(request.POST.get('total'))
 
-                # Other fields
-                updated.quote_date = request.POST.get('quote_date') or updated.quote_date
-                updated.validity_days = request.POST.get('validity_days') or updated.validity_days
-                updated.terms_conditions = request.POST.get('terms_conditions', updated.terms_conditions or "")
+                # 🔹 IMPORTANT: Convert text → HTML before saving
+                user_terms_text = request.POST.get('terms_conditions', '')
+
+                terms_obj = TermsAndConditions.objects.order_by('-id').first()
+                default_terms_text = terms_obj.content if terms_obj else ""
+
+                updated.terms_conditions = merge_terms_to_html(
+                    default_terms_text,
+                    user_terms_text
+                )
+
                 updated.save()
 
-                # Replace all estimation items
+                # Replace items
                 EstimationItem.objects.filter(estimation=updated).delete()
 
-                details = request.POST.getlist('item_details[]')
-                hsns = request.POST.getlist('hsn_sac[]')
-                qtys = request.POST.getlist('quantity[]')
-                uoms = request.POST.getlist('uom[]') 
-                rates = request.POST.getlist('rate[]')
-                taxes = request.POST.getlist('tax[]')
-                amts = request.POST.getlist('amount[]')
-
-                for detail, hsn, qty, uom, rate, tax, amt in zip(details, hsns, qtys, uoms, rates, taxes, amts):
-                    if str(detail).strip():
+                for detail, hsn, qty, uom, rate, tax, amt in zip(
+                    request.POST.getlist('item_details[]'),
+                    request.POST.getlist('hsn_sac[]'),
+                    request.POST.getlist('quantity[]'),
+                    request.POST.getlist('uom[]'),
+                    request.POST.getlist('rate[]'),
+                    request.POST.getlist('tax[]'),
+                    request.POST.getlist('amount[]'),
+                ):
+                    if detail.strip():
                         EstimationItem.objects.create(
                             estimation=updated,
-                            item_details=str(detail).strip(),
+                            item_details=detail.strip(),
                             hsn_sac=(hsn or "").strip() or None,
                             quantity=int(qty or 0),
                             uom=uom or "Nos",
@@ -1419,14 +1482,16 @@ def edit_estimation(request, pk):
             logger.exception("Error saving estimation %s", estimation.pk)
             form.add_error(None, f"Error saving quotation: {e}")
 
+    # 🔹 GET request
     return render(request, 'edit_estimation.html', {
         'form': form,
         'estimation': estimation,
         'clients': clients,
         'items': items,
-        'terms': default_terms,
         'all_leads': all_leads,
+        'terms_plain': terms_plain,   # ✅ THIS IS THE KEY
     })
+
 
 
 # ====================================================
@@ -1957,8 +2022,8 @@ def dc_pdf(request, pk):
     logo_uri = ""
     try:
         if getattr(settings, "STATIC_ROOT", None):
-            logo_path = Path(settings.STATIC_ROOT) / "images/logo.png"
-            logo_uri = logo_path.as_uri()
+            logo_path = Path(settings.STATIC_ROOT) / "images" / "logo.png"
+            logo_uri = logo_path.resolve().as_uri()
         else:
             # Fallback to BASE_DIR/static/images/logo.png if STATIC_ROOT not set
             logo_path = Path(settings.BASE_DIR) / "static" / "images" / "logo.png"
@@ -2005,63 +2070,72 @@ def delete_dc(request, pk):
     return redirect("dc_list")
 
 
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-
-from .models import DeliveryChallan, DeliveryChallanItem, EstimationItem
-
+from django.db import transaction
+from django.contrib.auth.decorators import login_required
 
 @login_required
 def edit_dc(request, pk):
-    dc = get_object_or_404(
-        DeliveryChallan.objects.prefetch_related("items__estimation_item"),
-        pk=pk
-    )
-    estimation = dc.estimation
+    dc = get_object_or_404(DeliveryChallan, pk=pk)
+
+    # 🔒 LOCK DC IF INVOICE EXISTS
+    if Invoice.objects.filter(estimation=dc.estimation).exists():
+        messages.warning(
+            request,
+            "⚠️ This Delivery Challan cannot be edited because an invoice already exists."
+        )
+        return redirect('dc_list')
+
+    items = DeliveryChallanItem.objects.filter(dc=dc).select_related('estimation_item')
 
     if request.method == "POST":
-        # ---- Update DC Header ----
-        dc.dc_date = request.POST.get("dc_date")
-        dc.delivery_address = request.POST.get("delivery_address")
-        dc.contact_person = request.POST.get("contact_person")
-        dc.contact_number = request.POST.get("contact_number")
-        dc.terms = request.POST.get("terms")
-        dc.po_no = request.POST.get("po_no")
-        dc.po_date = request.POST.get("po_date") or None
-        dc.save()
+        try:
+            with transaction.atomic():
 
-        # Remove old items
-        dc.items.all().delete()
+                # ===== UPDATE DC HEADER =====
+                dc.dc_date = request.POST.get('dc_date') or dc.dc_date
+                dc.delivery_address = request.POST.get('delivery_address', '').strip()
+                dc.contact_person = request.POST.get('contact_person', '').strip()
+                dc.contact_number = request.POST.get('contact_number', '').strip()
+                dc.po_no = request.POST.get('po_no', '').strip()
+                dc.po_date = request.POST.get('po_date') or None
+                dc.terms = request.POST.get('terms', '').strip()
+                dc.save()
 
-        # Recreate items
-        for item_id in request.POST.getlist("item_id[]"):
-            qty = int(request.POST.get(f"qty_{item_id}", 0))
-            desc = request.POST.get(f"desc_{item_id}", "").strip()
-            uom = request.POST.get(f"uom_{item_id}", "Nos")
+                # ===== REPLACE DC ITEMS =====
+                DeliveryChallanItem.objects.filter(dc=dc).delete()
 
-            if qty <= 0:
-                continue
+                estimation_item_ids = request.POST.getlist('estimation_item_id[]')
+                quantities = request.POST.getlist('quantity[]')
+                uoms = request.POST.getlist('uom[]')
+                descriptions = request.POST.getlist('description[]')
 
-            est_item = get_object_or_404(EstimationItem, id=item_id)
+                for est_item_id, qty, uom, desc in zip(
+                    estimation_item_ids, quantities, uoms, descriptions
+                ):
+                    if not qty or int(qty) <= 0:
+                        continue
 
-            DeliveryChallanItem.objects.create(
-                dc=dc,
-                estimation_item=est_item,
-                quantity=qty,
-                uom=uom,
-                description=desc or est_item.item_details,
-            )
+                    est_item = EstimationItem.objects.get(pk=est_item_id)
 
-        messages.success(request, "Delivery Challan updated successfully.")
-        return redirect("dc_list")
+                    DeliveryChallanItem.objects.create(
+                        dc=dc,
+                        estimation_item=est_item,
+                        quantity=int(qty),
+                        uom=uom,
+                        description=desc.strip() or est_item.item_details
+                    )
 
-    # ---- GET REQUEST ----
-    context = {
-        "dc": dc,
-        "estimation": estimation,
-        "items": estimation.items.all(),
-        "dc_items": dc.items.all(),  # ✅ IMPORTANT
-    }
+                messages.success(request, "✅ Delivery Challan updated successfully.")
+                return redirect('dc_list')
 
-    return render(request, "dc/edit_dc.html", context)
+        except Exception as e:
+            messages.error(request, f"❌ Error updating DC: {e}")
+
+    return render(request, 'crm/edit_dc.html', {
+    'dc': dc,
+    'items': items,
+})
+
+
