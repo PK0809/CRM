@@ -85,34 +85,40 @@ th {
     </td>
 
     <!-- DC META -->
-    <td style="width:30%; text-align:right;">
-        <div style="font-size:20px; font-weight:bold;">
-            DELIVERY CHALLAN
-        </div>
-        <div style="margin-top:40px;">
-            <strong>DC No:</strong> {{ dc.dc_no }}<br>
-            <strong>Date:</strong> {{ dc.dc_date|date:"d/m/Y" }}
-        </div>
+    <td width="35%" style="
+        text-align:center;
+        vertical-align:middle;
+        font-weight:bold;
+        font-size:18px;
+        letter-spacing:0.5px;
+    ">
+        DELIVERY<br>CHALLAN
     </td>
-
 </tr>
 </table>
 </div>
 
 <!-- ================= PARTY + PO ================= -->
-<table style="margin-top:15px;">
+<table style="margin-top:15px; table-layout:fixed;">
 <tr>
-    <td style="width:60%;">
+    <!-- LEFT : PARTY DETAILS -->
+    <td style="width:50%; vertical-align:top; line-height:1.4;">
         <strong>M/s :</strong>
         <span style="color:#003399; font-weight:bold;">
             {{ dc.estimation.company_name }}
         </span><br>
+
         <strong>Attn :</strong> {{ dc.contact_person }}<br>
+
         {{ dc.delivery_address|linebreaksbr }}<br>
+
         <strong>Ph :</strong> {{ dc.contact_number }}
     </td>
 
-    <td style="width:40%;">
+    <!-- RIGHT : PO DETAILS -->
+    <td style="width:40%; vertical-align:top; line-height:1.4;">
+        <strong>DC No: {{ dc.dc_no }}</strong><br>
+        <strong>Date:</strong> {{ dc.dc_date|date:"d/m/Y" }}<br>
         <strong>PO No :</strong> {{ dc.po_no|default:"-" }}<br>
         <strong>PO Date :</strong>
         {% if dc.po_date %}
@@ -158,21 +164,22 @@ th {
 </table>
 
 <!-- ================= SIGNATURES ================= -->
-<table class="signature" style="margin-top:20px;">
+<table class="signature" style="margin-top:30px; table-layout:fixed;">
 <tr>
-    <td style="width:33%;" class="center">
-        Received Name & Received Sign<br>
+    <td style="width:30%; height:120px; vertical-align:bottom; text-align:center;">
+        <div style="margin-bottom:5px;">Received Name &amp; Received Sign</div>
     </td>
 
-    <td style="width:33%;" class="center">
-        Delivered By
+    <td style="width:30%; height:120px; vertical-align:bottom; text-align:center;">
+        <div style="margin-bottom:5px;">Delivered By</div>
     </td>
 
-    <td style="width:33%;" class="center">
-        Authorised Sign
+    <td style="width:30%; height:120px; vertical-align:bottom; text-align:center;">
+        <div style="margin-bottom:5px;">Authorised Sign</div>
     </td>
 </tr>
 </table>
+
 
 <!-- ================= FOOTER ================= -->
 <table style="margin-top:10px;">
