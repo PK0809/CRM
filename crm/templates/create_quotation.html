@@ -63,8 +63,22 @@
         <!-- Address Section -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
             <div>
-                <label class="block font-semibold mb-2 text-gray-700">Billing Address</label>
-                <textarea name="billing_address" rows="3" class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                <label class="block font-semibold mb-2 text-gray-700">
+                    Billing Address (Branch)
+                </label>
+
+                <!-- Branch Dropdown -->
+                <select id="billing_branch"
+                        class="w-full border rounded-lg px-3 py-2 mb-2 focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- Select Branch --</option>
+                </select>
+
+                <!-- Full Address -->
+                <textarea name="billing_address"
+                        id="billing_address"
+                        rows="3"
+                        class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="Billing address will appear here..."></textarea>
             </div>
             <div>
                 <label class="block font-semibold mb-2 text-gray-700">Shipping Address</label>
@@ -251,5 +265,46 @@
             }
         });
     });
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const companySelect = document.getElementById("company_name");
+    const branchSelect = document.getElementById("billing_branch");
+    const billingAddress = document.getElementById("billing_address");
+
+    companySelect.addEventListener("change", function () {
+        const clientId = this.value;
+
+        branchSelect.innerHTML = '<option value="">-- Select Branch --</option>';
+        billingAddress.value = "";
+
+        if (!clientId) return;
+
+        fetch(`/get-client-contacts/?client_id=${clientId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.branches.length === 0) {
+                    const opt = document.createElement("option");
+                    opt.text = "No branches found";
+                    opt.disabled = true;
+                    branchSelect.appendChild(opt);
+                    return;
+                }
+
+                data.branches.forEach(branch => {
+                    const opt = document.createElement("option");
+                    opt.value = branch.id;
+                    opt.textContent = branch.branch_name;
+                    opt.dataset.address = branch.address;
+                    branchSelect.appendChild(opt);
+                });
+            });
+    });
+
+    branchSelect.addEventListener("change", function () {
+        const selected = this.options[this.selectedIndex];
+        billingAddress.value = selected.dataset.address || "";
+    });
+});
 </script>
 {% endblock %}

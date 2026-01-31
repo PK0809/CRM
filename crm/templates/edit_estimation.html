@@ -63,8 +63,22 @@
         <!-- Address Section -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
             <div>
-                <label class="block font-semibold mb-2 text-gray-700">Billing Address</label>
-                <textarea name="billing_address" rows="3" class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500">{{ estimation.billing_address }}</textarea>
+                <label class="block font-semibold mb-2 text-gray-700">
+                    Billing Address (Branch)
+                </label>
+
+                <!-- Branch Dropdown -->
+                <select id="billing_branch"
+                        class="w-full border rounded-lg px-3 py-2 mb-2 focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- Select Branch --</option>
+                </select>
+
+                <!-- Full Address -->
+                <textarea name="billing_address"
+                        id="billing_address"
+                        rows="3"
+                        class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500">
+            {{ estimation.billing_address }}</textarea>
             </div>
             <div>
                 <label class="block font-semibold mb-2 text-gray-700">Shipping Address</label>
@@ -173,9 +187,14 @@
         </div>
 
         <!-- Terms & Conditions -->
-        <div class="mt-6">
-            <label for="terms_conditions" class="block font-semibold mb-2 text-gray-700">Terms & Conditions</label>
-            <textarea name="terms_conditions" rows="6" class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500">{{ form.terms_conditions.value|default:terms }}</textarea>
+       <div class="mt-6">
+            <label for="terms_conditions"
+                class="block font-semibold mb-2 text-gray-700">
+                Terms & Conditions
+            </label>
+
+            <textarea name="terms_conditions" rows="6"
+            class="w-full border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500">{{ terms_plain }}</textarea>
         </div>
 
         <!-- Submit -->
@@ -266,6 +285,66 @@ document.addEventListener("DOMContentLoaded", function () {
                 .then(res => res.json())
                 .then(data => { gstInput.value = data.gst_no || ""; });
         }
+    });
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const companySelect = document.getElementById("company_name");
+    const branchSelect = document.getElementById("billing_branch");
+    const billingAddress = document.getElementById("billing_address");
+
+    function loadBranches(clientId, preselectAddress = null) {
+        branchSelect.innerHTML = '<option value="">-- Select Branch --</option>';
+
+        if (!clientId) return;
+
+        fetch(`/get-client-contacts/?client_id=${clientId}`)
+            .then(res => res.json())
+            .then(data => {
+                let matched = false;
+
+                data.branches.forEach(branch => {
+                    const opt = document.createElement("option");
+                    opt.value = branch.id;
+                    opt.textContent = branch.branch_name;
+                    opt.dataset.address = branch.address || "";
+                    branchSelect.appendChild(opt);
+
+                    // ✅ Auto-select branch if address matches
+                    if (
+                        preselectAddress &&
+                        branch.address &&
+                        branch.address.trim() === preselectAddress.trim()
+                    ) {
+                        opt.selected = true;
+                        matched = true;
+                    }
+                });
+
+                // If matched, keep textarea synced
+                if (matched) {
+                    const sel = branchSelect.options[branchSelect.selectedIndex];
+                    billingAddress.value = sel.dataset.address || billingAddress.value;
+                }
+            });
+    }
+
+    // Load branches on page load (EDIT MODE)
+    if (companySelect.value) {
+        loadBranches(companySelect.value, billingAddress.value);
+    }
+
+    // Reload branches when company changes
+    companySelect.addEventListener("change", function () {
+        billingAddress.value = "";
+        loadBranches(this.value);
+    });
+
+    // Fill address when branch selected
+    branchSelect.addEventListener("change", function () {
+        const selected = this.options[this.selectedIndex];
+        billingAddress.value = selected.dataset.address || "";
     });
 });
 </script>
