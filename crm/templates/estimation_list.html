@@ -30,6 +30,7 @@
         </div>
     </div>
 
+
     <!-- Estimation Table -->
     <div class="overflow-x-auto">
         <table class="min-w-full bg-white shadow border border-gray-300 rounded mt-4 text-sm">
@@ -63,10 +64,30 @@
                     </td>
                     <td class="px-4 py-2 border text-center">₹{{ est.total }}</td>
                     <td class="px-4 py-2 border text-center">
-                        {% if est.status == "Approved" %}<span class="text-green-600 font-semibold">{{ est.status }}</span>
-                        {% elif est.status == "Rejected" %}<span class="text-red-600 font-semibold">{{ est.status }}</span>
-                        {% elif est.status == "Lost" %}<span class="text-gray-600 italic">{{ est.status }}</span>
-                        {% else %}<span class="text-yellow-600 font-semibold">{{ est.status }}</span>
+                        {% if est.status == "Lost" %}
+                            <span class="px-2 py-1 rounded text-red-800 bg-red-100 font-semibold">
+                                ❌ Lost
+                            </span>
+
+                        {% elif est.status == "Invoiced" %}
+                            <span class="px-2 py-1 rounded text-green-800 bg-green-200 font-semibold">
+                                🧾 Invoiced
+                            </span>
+
+                        {% elif est.status == "Approved" %}
+                            <span class="px-2 py-1 rounded text-green-700 bg-green-100 font-semibold">
+                                ✅ Approved
+                            </span>
+
+                        {% elif est.status == "Under Review" %}
+                            <span class="px-2 py-1 rounded text-yellow-800 bg-yellow-200 font-semibold">
+                                🕵️ Under Review
+                            </span>
+
+                        {% else %}
+                            <span class="px-2 py-1 rounded text-gray-700 bg-gray-100 font-semibold">
+                                ⏳ {{ est.status }}
+                            </span>
                         {% endif %}
                     </td>
                     <td class="px-4 py-2 border text-center">{{ est.follow_up_date|default:"—" }}</td>
