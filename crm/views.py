@@ -1,4 +1,4 @@
-﻿from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.models import Permission
@@ -1493,6 +1493,9 @@ def edit_estimation(request, pk):
     })
 
 
+from django.db.models import Sum, Count
+from decimal import Decimal
+
 
 # ====================================================
 # Estimation List (Follow-up Filter)
@@ -1507,7 +1510,7 @@ def estimation_list(request):
     if follow_up_filter == "today":
         estimations = Estimation.objects.filter(follow_up_date=today).order_by('-id')
     else:
-        estimations = Estimation.objects.all().order_by('-id')
+        estimations = Estimation.objects.all().order_by('-id') 
 
     paginator = Paginator(estimations, 15)
     page_obj = paginator.get_page(request.GET.get("page"))
@@ -2079,11 +2082,11 @@ from django.contrib.auth.decorators import login_required
 def edit_dc(request, pk):
     dc = get_object_or_404(DeliveryChallan, pk=pk)
 
-    # 🔒 LOCK DC IF INVOICE EXISTS
+    # 🔒 Lock if invoice exists
     if Invoice.objects.filter(estimation=dc.estimation).exists():
         messages.warning(
             request,
-            "⚠️ This Delivery Challan cannot be edited because an invoice already exists."
+            "⚠️ This Delivery Challan cannot be edited because an invoice exists."
         )
         return redirect('dc_list')
 
@@ -2093,7 +2096,7 @@ def edit_dc(request, pk):
         try:
             with transaction.atomic():
 
-                # ===== UPDATE DC HEADER =====
+                # ===== UPDATE HEADER =====
                 dc.dc_date = request.POST.get('dc_date') or dc.dc_date
                 dc.delivery_address = request.POST.get('delivery_address', '').strip()
                 dc.contact_person = request.POST.get('contact_person', '').strip()
@@ -2103,21 +2106,21 @@ def edit_dc(request, pk):
                 dc.terms = request.POST.get('terms', '').strip()
                 dc.save()
 
-                # ===== REPLACE DC ITEMS =====
+                # ===== REPLACE ITEMS =====
                 DeliveryChallanItem.objects.filter(dc=dc).delete()
 
-                estimation_item_ids = request.POST.getlist('estimation_item_id[]')
+                est_item_ids = request.POST.getlist('estimation_item_id[]')
                 quantities = request.POST.getlist('quantity[]')
                 uoms = request.POST.getlist('uom[]')
                 descriptions = request.POST.getlist('description[]')
 
-                for est_item_id, qty, uom, desc in zip(
-                    estimation_item_ids, quantities, uoms, descriptions
+                for est_id, qty, uom, desc in zip(
+                    est_item_ids, quantities, uoms, descriptions
                 ):
                     if not qty or int(qty) <= 0:
                         continue
 
-                    est_item = EstimationItem.objects.get(pk=est_item_id)
+                    est_item = EstimationItem.objects.get(pk=est_id)
 
                     DeliveryChallanItem.objects.create(
                         dc=dc,
@@ -2134,8 +2137,9 @@ def edit_dc(request, pk):
             messages.error(request, f"❌ Error updating DC: {e}")
 
     return render(request, 'crm/edit_dc.html', {
-    'dc': dc,
-    'items': items,
-})
+        'dc': dc,
+        'items': items,
+    })
+
 
 
