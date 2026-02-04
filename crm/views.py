@@ -1633,7 +1633,7 @@ def approve_invoice(request, est_id):
         total_value=estimation.total,
         balance_due=estimation.total,
         credit_days=credit_days,
-        remarks=estimation.remarks,
+        remarks=estimation.remarks or "",
         is_approved=True,
         status='Pending',
     )
@@ -1654,7 +1654,17 @@ def estimation_detail_view(request, pk):
     estimation = get_object_or_404(Estimation, pk=pk)
     items = estimation.items.all()
     total = sum((item.amount for item in items), Decimal('0.00'))
-    return render(request, 'crm/estimation_detail_view.html', {'estimation': estimation, 'items': items, 'total': total})
+    return render(
+        request,
+        'crm/estimation_detail.html',
+        {
+            'estimation': estimation,
+            'items': items,
+            'total': total,
+        }
+    )
+
+
 
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
@@ -1759,7 +1769,7 @@ def view_payment_logs(request, invoice_id):
 def invoice_list_view(request):
     estimations = Estimation.objects.filter(status='Approved')
     invoices = Invoice.objects.all().order_by('-created_at')
-    return render(request, 'invoice_approval_list.html', {'estimations': estimations, 'invoices': invoices})
+    return render(request, 'crm/invoice_approval_list.html', {'estimations': estimations, 'invoices': invoices})
 
 def invoice_logs_api(request, invoice_id):
     logs = PaymentLog.objects.filter(invoice_id=invoice_id).order_by('-payment_date')
