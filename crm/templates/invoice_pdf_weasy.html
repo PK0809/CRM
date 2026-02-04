@@ -106,7 +106,7 @@
                 <th style="width: 5%; text-align: left;">#</th>
                 <th style="width: 50%; text-align: left;">Description</th>
                 <th style="width: 7%; text-align: right;">Qty</th>
-                <th style="width: 8%; text-align: right;">Units</th>
+                <th style="width: 8%; text-align: right;">UOM</th>
                 <th style="width: 10%; text-align: right;">Rate</th>
                 <th style="width: 10%; text-align: right;">Tax %</th>
                 <th style="width: 10%; text-align: right;">Amount</th>
@@ -118,7 +118,9 @@
                 <td style="text-align: left;">{{ forloop.counter }}</td>
                 <td style="text-align: left;">{{ item.item_details }}</td>
                 <td style="text-align: right; white-space: nowrap;">{{ item.quantity }}</td>
-                <td style="text-align: right; white-space: nowrap;">Nos</td>
+                <td style="text-align: right; white-space: nowrap;">
+                    {{ item.uom|default:"Nos" }}
+                </td>
                 <td style="text-align: right; white-space: nowrap;">{{ item.rate }}</td>
                 <td style="width: 10%; text-align: right; white-space: nowrap;">{{ item.tax|floatformat:0 }}%</td>
                 <td style="text-align: right; white-space: nowrap;">{{ item.amount }}</td>
