@@ -1,0 +1,153 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<div class="p-4 space-y-4">
+
+    <!-- HEADER + ACTIONS -->
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-bold text-gray-800">
+            Estimation — {{ estimation.quote_no }}
+        </h1>
+
+        <div class="flex justify-center gap-x-2">
+            <form method="POST" action="{% url 'approve_invoice' estimation.id %}">
+                {% csrf_token %}
+                <button
+                    type="submit"
+                    class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">
+                    Approve
+                </button>
+            </form>
+
+            <form
+                method="POST"
+                action="{% url 'reject_invoice' estimation.id %}"
+                onsubmit="return handleReject(this);">
+                {% csrf_token %}
+                <input type="hidden" name="reason">
+                <button
+                    type="submit"
+                    class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">
+                    Reject
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ZOOM CONTROLS -->
+    <div class="flex items-center gap-2 mb-3">
+        <button onclick="zoomIn()" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">➕ Zoom</button>
+        <button onclick="zoomOut()" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">➖ Zoom</button>
+        <button onclick="resetZoom()" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">🔄 Reset</button>
+    </div>
+
+
+    <!-- PDF VIEWERS -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+    <!-- Estimation PDF -->
+    <div class="border rounded shadow bg-white flex flex-col">
+        <div class="px-3 py-2 bg-blue-50 font-semibold border-b">
+            📄 Estimation PDF
+        </div>
+        <div class="pdf-wrapper">
+            <iframe
+                src="{% url 'quotation_pdf' estimation.id %}#toolbar=0&navpanes=0"
+                class="pdf-frame">
+            </iframe>
+        </div>
+    </div>
+
+    <!-- Customer PO -->
+    <div class="border rounded shadow bg-white flex flex-col">
+        <div class="px-3 py-2 bg-green-50 font-semibold border-b">
+            📎 Customer PO
+        </div>
+
+        {% if estimation.po_attachment %}
+        <div class="pdf-wrapper">
+            <iframe
+                src="{{ estimation.po_attachment.url }}#toolbar=0&navpanes=0"
+                class="pdf-frame">
+            </iframe>
+        </div>
+        {% else %}
+        <div class="pdf-wrapper flex items-center justify-center text-gray-500 italic">
+            No Customer PO Uploaded
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+
+<!-- REJECT MODAL -->
+<div id="rejectModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white p-6 rounded w-96">
+        <h2 class="font-bold mb-3">Reject Estimation</h2>
+        <form method="POST" action="{% url 'reject_estimation' estimation.id %}">
+            {% csrf_token %}
+            <textarea
+                name="reason"
+                class="w-full border rounded p-2 mb-4"
+                placeholder="Enter rejection reason..."
+                required></textarea>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeRejectModal()" class="px-3 py-1">Cancel</button>
+                <button class="bg-red-600 text-white px-4 py-1 rounded">Reject</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- STYLES -->
+<style>
+.pdf-wrapper {
+    height: calc(100vh - 260px);
+    overflow: auto;
+    transform-origin: top left;
+}
+
+.pdf-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+</style>
+
+
+<!-- JS -->
+<script>
+let zoomLevel = 1;
+
+function applyZoom() {
+    document.querySelectorAll(".pdf-wrapper").forEach(el => {
+        el.style.transform = `scale(${zoomLevel})`;
+    });
+}
+
+function zoomIn() {
+    zoomLevel += 0.1;
+    applyZoom();
+}
+
+function zoomOut() {
+    zoomLevel = Math.max(0.5, zoomLevel - 0.1);
+    applyZoom();
+}
+
+function resetZoom() {
+    zoomLevel = 1;
+    applyZoom();
+}
+
+function openRejectModal() {
+    document.getElementById("rejectModal").classList.remove("hidden");
+}
+
+function closeRejectModal() {
+    document.getElementById("rejectModal").classList.add("hidden");
+}
+</script>
+
+{% endblock %}
