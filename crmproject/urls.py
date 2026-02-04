@@ -68,8 +68,7 @@ urlpatterns = [
     path('estimation/view/<int:pk>/', views.estimation_detail_view, name='estimation_detail'),
     path('create-quotation/', views.create_quotation, name='create_quotation'),
     path('quotation/<int:pk>/pdf/', QuotationPDFView.as_view(), name='quotation_pdf'),
-  
-
+    path('estimation/view/<int:pk>/', views.estimation_detail_view, name='estimation_detail'),
 
     path("dc/create/<int:pk>/", views.create_dc, name="create_dc"),
     path('dc/', views.dc_list, name='dc_list'),
@@ -80,7 +79,6 @@ urlpatterns = [
 
 
     
-
     # Invoices
     path('invoices/', views.invoice_list_view, name='invoice_list'),
     path('invoice/view/<int:pk>/', views.invoice_detail_view, name='invoice_detail'),
