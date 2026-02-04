@@ -84,6 +84,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+X_FRAME_OPTIONS = "SAMEORIGIN"
+
 ROOT_URLCONF = "crmproject.urls"
 
 TEMPLATES = [
@@ -129,6 +131,7 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Kolkata"
 USE_I18N = True
 USE_TZ = True
+
 
 
 
