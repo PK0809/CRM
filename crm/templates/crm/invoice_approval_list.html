@@ -88,84 +88,182 @@
             </table>
         </div>
 
+    <!-- Invoice Summary Bar -->
+    <div class="grid grid-cols-5 gap-4 mb-4">
+
+        <div class="bg-white border rounded p-4">
+            <p class="text-sm text-gray-500">Invoices</p>
+            <p class="text-2xl font-bold">{{ summary.count }}</p>
+        </div>
+
+        <div class="bg-blue-50 border rounded p-4">
+            <p class="text-sm text-blue-700">Total Amount</p>
+            <p class="text-2xl font-bold text-blue-800">
+                ₹ {{ summary.total|floatformat:2 }}
+            </p>
+        </div>
+
+        <div class="bg-emerald-50 border rounded p-4">
+            <p class="text-sm text-emerald-700">Paid Amount</p>
+            <p class="text-2xl font-bold">
+                ₹ {{ summary.paid }}
+            </p>
+        </div>
+
+        <div class="bg-red-50 border rounded p-4">
+            <p class="text-sm text-red-700">Balance Due</p>
+            <p class="text-2xl font-bold text-red-800">
+                ₹ {{ summary.balance|floatformat:2 }}
+            </p>
+        </div>
+
+        <div class="bg-purple-50 border rounded p-4">
+            <p class="text-sm text-purple-700">GST Collected</p>
+            <p class="text-2xl font-bold text-purple-800">
+                ₹ {{ summary.gst|floatformat:2 }}
+            </p>
+        </div>
+
+    </div>
         <!-- Generated Invoices Table -->
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-2xl font-bold text-gray-800">📄 Generated Invoices</h2>
             <input type="text"
-                   id="invoiceSearch"
-                   placeholder="🔍 Search..."
-                   class="border border-gray-300 rounded px-3 py-1 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                   onkeyup="filterInvoicesTable()" />
+                id="invoiceSearch"
+                placeholder="🔍 Search..."
+                class="border border-gray-300 rounded px-3 py-1 w-64 text-sm
+                        focus:outline-none focus:ring-2 focus:ring-blue-400"
+                onkeyup="filterInvoicesTable()" />
         </div>
+
+        <form method="GET" class="flex flex-wrap gap-3 items-end mb-6">
+
+            <select name="range"
+                    class="border rounded px-3 py-2 text-sm"
+                    onchange="this.form.submit()">
+                <option value="month" {% if filter_type == 'month' %}selected{% endif %}>This Month</option>
+                <option value="fy" {% if filter_type == 'fy' %}selected{% endif %}>Financial Year</option>
+                <option value="custom" {% if filter_type == 'custom' %}selected{% endif %}>Custom</option>
+            </select>
+
+            {% if filter_type == 'custom' %}
+            <input type="date" name="start_date" value="{{ start_date }}"
+                class="border rounded px-3 py-2 text-sm">
+            <input type="date" name="end_date" value="{{ end_date }}"
+                class="border rounded px-3 py-2 text-sm">
+            <button class="bg-blue-600 text-white px-4 py-2 rounded text-sm">
+                Apply
+            </button>
+            {% endif %}
+
+            <a href="{% url 'export_invoice_summary' %}?{{ request.GET.urlencode }}"
+            class="ml-auto bg-green-600 text-white px-4 py-2 rounded text-sm">
+                ⬇ Export Excel
+            </a>
+            <a href="{% url 'export_gst_excel' %}?{{ request.GET.urlencode }}"
+            class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm shadow">
+            🧾 Export GST Excel
+            </a>
+        </form>
+
         <table id="invoiceTable" class="w-full border border-gray-300 text-sm text-left">
             <thead class="bg-gray-100 text-gray-700 font-semibold">
                 <tr>
                     <th onclick="sortTable(0)" class="cursor-pointer px-4 py-2 border text-center">Date</th>
                     <th onclick="sortTable(1)" class="cursor-pointer px-4 py-2 border text-center">Invoice No</th>
                     <th onclick="sortTable(2)" class="cursor-pointer px-4 py-2 border text-center">Estimation No</th>
-                    <th onclick="sortTable(3)" class="cursor-pointer px-4 py-2 border text-center">Purchase order (PO)</th>
-                    <th onclick="sortTable(4)" class="cursor-pointer px-4 py-2 border text-left">Client Name</th>
+                    <th onclick="sortTable(3)" class="cursor-pointer px-4 py-2 border text-center">PO</th>
+                    <th onclick="sortTable(4)" class="cursor-pointer px-4 py-2 border">Client</th>
                     <th onclick="sortTable(5)" class="cursor-pointer px-4 py-2 border text-center">Due Date</th>
-                    <th onclick="sortTable(6)" class="cursor-pointer px-4 py-2 border text-center">Amount</th>
-                    <th onclick="sortTable(7)" class="cursor-pointer px-4 py-2 border text-center">Balance Due</th>
+                    <th onclick="sortTable(6)" class="cursor-pointer px-4 py-2 border text-right">Amount</th>
+                    <th onclick="sortTable(7)" class="cursor-pointer px-4 py-2 border text-right">Balance</th>
                     <th onclick="sortTable(8)" class="cursor-pointer px-4 py-2 border text-center">Status</th>
                     <th class="px-4 py-2 border text-center">Action</th>
                 </tr>
             </thead>
+
             <tbody>
-                {% for invoice in invoices %}
+            {% for invoice in invoices %}
                 <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-2 border">{{ invoice.created_at|date:"d-m-Y" }}</td>
+                    <td class="px-4 py-2 border text-center">
+                        {{ invoice.created_at|date:"d-m-Y" }}
+                    </td>
+
                     <td class="px-4 py-2 border font-mono text-blue-600 underline">
-                        <a id="invoice-no-{{ invoice.id }}" href="{% url 'invoice_pdf' invoice.id %}" target="_blank">
+                        <a id="invoice-no-{{ invoice.id }}"
+                        href="{% url 'invoice_pdf' invoice.id %}"
+                        target="_blank">
                             {{ invoice.invoice_no }}
                         </a>
                     </td>
-                    <td class="px-4 py-2 border">{{ invoice.estimation.quote_no }}</td>
-                    <td class="px-4 py-2 border">{{ invoice.estimation.po_number }}</td>
-                    <td class="px-4 py-2 border">{{ invoice.estimation.company_name }}</td>
-                    <td class="px-4 py-2 border">{{ invoice.due_date|date:"d-m-Y" }}</td>
-                    <td class="px-4 py-2 border text-right">{{ invoice.total_value }}</td>
-                    <td class="px-4 py-2 border text-right">{{ invoice.balance_due }}</td>
+
                     <td class="px-4 py-2 border text-center">
+                        {{ invoice.estimation.quote_no }}
+                    </td>
+
+                    <td class="px-4 py-2 border text-center">
+                        {{ invoice.estimation.po_number|default:"-" }}
+                    </td>
+
+                    <td class="px-4 py-2 border">
+                        {{ invoice.estimation.company_name }}
+                    </td>
+
+                    <td class="px-4 py-2 border text-center">
+                        {{ invoice.due_date|date:"d-m-Y" }}
+                    </td>
+
+                    <td class="px-4 py-2 border text-right">
+                        ₹ {{ invoice.total_value|floatformat:2 }}
+                    </td>
+
+                    <td class="px-4 py-2 border text-right">
+                        ₹ {{ invoice.balance_due|floatformat:2 }}
+                    </td>
+
+                    <td class="px-4 py-2 border text-center font-semibold">
                         {% if invoice.status == 'Paid' %}
-                        <span class="text-green-600 font-semibold">{{ invoice.status }}</span>
+                            <span class="text-green-600">Paid</span>
                         {% elif invoice.status == 'Partial Paid' %}
-                        <span class="text-yellow-600 font-semibold">{{ invoice.status }}</span>
-                        {% elif invoice.status == 'Pending' %}
-                        <span class="text-red-600 font-semibold">{{ invoice.status }}</span>
+                            <span class="text-yellow-600">Partial</span>
                         {% else %}
-                        {{ invoice.status }}
+                            <span class="text-red-600">Unpaid</span>
                         {% endif %}
                     </td>
-                    <td class="px-4 py-2 border text-center">
-                        {% if invoice.status == 'Paid' %}
-                        <span class="text-green-700 font-semibold inline-flex items-center gap-1">
-                            Payment Received
-                            <button onclick="showPaymentLogs('{{ invoice.id }}')" title="View Logs" class="hover:rotate-90 transition duration-300 ease-in-out">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </button>
-                        </span>
-                        {% elif invoice.status == 'Partial Paid' %}
-                        <button type="button" onclick="openPaymentModal('{{ invoice.id }}')" class="bg-yellow-500 text-white px-3 py-1 rounded text-sm">Confirm Payment</button>
-                        <button onclick="showPaymentLogs('{{ invoice.id }}')" title="View Logs" class="hover:rotate-90 transition duration-300 ease-in-out">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+
+                    <td class="px-4 py-2 border text-center space-x-2">
+
+                        {% if invoice.status != 'Paid' %}
+                        <button onclick="openPaymentModal('{{ invoice.id }}')"
+                                class="bg-blue-600 text-white px-3 py-1 rounded text-sm">
+                            Confirm Payment
+                        </button>
+                        {% endif %}
+
+                        <button onclick="showPaymentLogs('{{ invoice.id }}')"
+                                title="View Logs"
+                                class="inline-block hover:rotate-90 transition">
+                            ⏱
                         </button>
 
-                        {% else %}
-                        <button type="button" onclick="openPaymentModal('{{ invoice.id }}')" class="bg-blue-600 text-white px-3 py-1 rounded text-sm">Confirm Payment</button>
+                        {% if invoice.can_edit %}
+                        <a href="{% url 'edit_invoice' invoice.id %}"
+                        class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm">
+                            ✏️ Edit
+                        </a>
                         {% endif %}
                     </td>
                 </tr>
-                {% empty %}
+            {% empty %}
                 <tr>
-                    <td colspan="10" class="px-4 py-4 text-center text-gray-500 italic">No invoices generated yet.</td>
+                    <td colspan="10"
+                        class="px-4 py-4 text-center text-gray-500 italic">
+                        No invoices generated yet.
+                    </td>
                 </tr>
-                {% endfor %}
+            {% endfor %}
+            </tbody>
+        </table>
                 <script>
                     function filterInvoicesTable() {
                         const input = document.getElementById("invoiceSearch");

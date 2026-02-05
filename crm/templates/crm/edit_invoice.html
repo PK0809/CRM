@@ -1,0 +1,215 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Edit Invoice</title>
+
+<style>
+body{font-family:Inter,Arial;background:#f4f6f8;font-size:13px}
+.container{max-width:1200px;margin:30px auto;background:#fff;
+padding:24px;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,.08)}
+h1{font-size:22px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+label{font-size:12px;color:#555}
+input,textarea,select{width:100%;padding:8px;border:1px solid #ccc;border-radius:6px}
+.readonly{background:#f1f5f9;padding:8px;border-radius:6px;font-weight:600}
+table{width:100%;border-collapse:collapse;margin-top:20px}
+th,td{border:1px solid #e5e7eb;padding:8px}
+th{background:#f9fafb}
+.actions{display:flex;justify-content:flex-end;gap:12px;margin-top:24px}
+.btn{padding:10px 18px;border-radius:6px;border:none;font-weight:600;cursor:pointer}
+.btn-save{background:#2563eb;color:white}
+.btn-cancel{background:#6b7280;color:white}
+</style>
+</head>
+
+<body>
+<div class="container">
+<form method="POST">
+{% csrf_token %}
+
+<h1>Edit Invoice</h1>
+
+<div class="grid">
+<div>
+<label>Invoice No</label>
+<div class="readonly">{{ invoice.invoice_no }}</div>
+</div>
+
+<div>
+<label>Invoice Date</label>
+<input type="date" name="invoice_date"
+value="{{ invoice.created_at|date:'Y-m-d' }}">
+</div>
+
+<div>
+<label>Credit Days</label>
+<input type="number" name="credit_days" value="{{ invoice.credit_days }}">
+</div>
+
+<div>
+<label>Company Name</label>
+<div class="readonly">{{ estimation.company_name }}</div>
+</div>
+
+<div>
+<label>PO Number</label>
+<input type="text" name="po_number" value="{{ estimation.po_number }}">
+</div>
+
+<div>
+<label>GSTIN</label>
+<input type="text" name="gst_no" value="{{ estimation.gst_no }}">
+</div>
+</div>
+
+<hr>
+
+<h3>Bill To</h3>
+<textarea name="billing_address" rows="3">{{ estimation.billing_address }}</textarea>
+
+<h3>Ship To</h3>
+<textarea name="shipping_address" rows="3">{{ estimation.shipping_address }}</textarea>
+
+<hr>
+
+<h3>Invoice Items</h3>
+
+<table id="itemsTable">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Description</th>
+            <th>Qty</th>
+            <th>UOM</th>
+            <th>Rate</th>
+            <th>Tax %</th>
+            <th>Amount</th>
+            <th>❌</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ formset.management_form }}
+
+        {% for form in formset %}
+        <tr>
+            <td class="row-index">{{ forloop.counter }}</td>
+
+            <td>{{ form.item_details }}</td>
+
+            <td>{{ form.quantity }}</td>
+
+            <td>{{ form.uom }}</td>
+
+            <td>{{ form.rate }}</td>
+
+            <td>{{ form.tax }}</td>
+
+            <td class="amount">—</td>
+
+            <td>
+                {% if form.instance.pk %}
+                    {{ form.DELETE }}
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<button type="button" onclick="addRow()" style="margin-top:10px;">
+➕ Add Item
+</button>
+
+<hr>
+
+<hr style="margin:25px 0">
+
+<h3 style="margin-bottom:6px;">Terms & Conditions</h3>
+
+<!-- VIEW MODE -->
+<div id="termsPreview"
+     style="font-size:12px; line-height:1.6; cursor:pointer; border:1px dashed #ccc; padding:10px;"
+     onclick="enableTermsEdit()">
+    {{ estimation.terms_conditions|safe }}
+    <div style="color:#666;font-size:11px;margin-top:6px;">
+        ✏️ Click to edit
+    </div>
+</div>
+
+<!-- EDIT MODE -->
+<div id="termsEditor" style="display:none;">
+    <textarea name="terms_conditions"
+              id="terms_conditions_editor"
+              rows="6">
+{{ estimation.terms_conditions }}
+    </textarea>
+</div>
+
+<div class="actions">
+<a href="{% url 'invoice_list' %}" class="btn btn-cancel">Cancel</a>
+<button type="submit" class="btn btn-save">💾 Save Invoice</button>
+</div>
+
+</form>
+</div>
+<script>
+function addRow() {
+    const tbody = document.querySelector("#itemsTable tbody");
+    const rowCount = tbody.rows.length + 1;
+
+    const row = tbody.insertRow();
+
+    row.innerHTML = `
+        <td class="row-index">${rowCount}</td>
+        <td><input type="text" name="new_desc[]"></td>
+        <td><input type="number" class="qty" name="new_qty[]" value="1"></td>
+        <td>
+            <select name="new_uom[]">
+                <option>Nos</option>
+                <option>Meter</option>
+                <option>Box</option>
+            </select>
+        </td>
+        <td><input type="number" class="rate" name="new_rate[]" value="0"></td>
+        <td><input type="number" class="tax" name="new_tax[]" value="18"></td>
+        <td class="amount">0.00</td>
+        <td><button type="button" onclick="removeRow(this)">🗑</button></td>
+    `;
+
+    recalc();
+}
+
+function removeRow(btn) {
+    btn.closest("tr").remove();
+    updateIndexes();
+    recalc();
+}
+
+function updateIndexes() {
+    document.querySelectorAll(".row-index").forEach((td, i) => {
+        td.innerText = i + 1;
+    });
+}
+
+function recalc() {
+    let subtotal = 0;
+
+    document.querySelectorAll("#itemsTable tbody tr").forEach(row => {
+        const qty = parseFloat(row.querySelector(".qty")?.value || 0);
+        const rate = parseFloat(row.querySelector(".rate")?.value || 0);
+        const tax = parseFloat(row.querySelector(".tax")?.value || 0);
+
+        const amount = qty * rate;
+        row.querySelector(".amount").innerText = amount.toFixed(2);
+        subtotal += amount;
+    });
+
+    // OPTIONAL: update totals live if you want
+}
+
+document.addEventListener("input", recalc);
+</script>
+</body>
+</html>
