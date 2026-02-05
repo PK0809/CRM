@@ -1976,8 +1976,7 @@ def invoice_list_view(request):
     "filter_type": filter_type,
     "start_date": start_date,
     "end_date": end_date,
-}
-
+    }
     return render(request, "crm/invoice_approval_list.html", context)
 
 
