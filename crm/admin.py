@@ -122,7 +122,7 @@ class UserProfileInline(admin.StackedInline):
     can_delete = False
     verbose_name_plural = "Profile"
     fk_name = "user"
-    fields = ("name", "email", "phone_number", "role", "permissions", "created_at")
+    fields = ("name", "phone_number", "role", "permissions", "created_at")
     readonly_fields = ("created_at",)
     filter_horizontal = ("permissions",)
 

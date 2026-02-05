@@ -1724,6 +1724,145 @@ def invoice_pdf_view(request, invoice_id):
     response['Content-Disposition'] = f'filename="{invoice.invoice_no}.pdf"'
     return response
 
+from decimal import Decimal
+from django.shortcuts import render, get_object_or_404, redirect
+from django.forms import modelformset_factory
+from django.utils.dateparse import parse_date
+from num2words import num2words
+
+from .models import Invoice, Estimation, EstimationItem
+
+
+def edit_invoice(request, invoice_id):
+    invoice = get_object_or_404(Invoice, pk=invoice_id)
+
+    # 🔒 HARD STOP – accounting safety
+    if not invoice.can_edit():
+        return redirect("invoice_list")
+
+    estimation = invoice.estimation
+
+    ItemFormSet = modelformset_factory(
+        EstimationItem,
+        fields=("item_details", "uom", "quantity", "rate", "tax"),
+        extra=0,          # existing items only
+        can_delete=True
+    )
+
+    if request.method == "POST":
+
+        # =========================
+        # Invoice header updates
+        # =========================
+        invoice_date = request.POST.get("invoice_date")
+        if invoice_date:
+            invoice.created_at = parse_date(invoice_date)
+
+        invoice.credit_days = int(request.POST.get("credit_days", 0))
+        invoice.remarks = request.POST.get("remarks", "")
+        invoice.save()
+
+        # =========================
+        # Estimation header updates
+        # =========================
+        estimation.po_number = request.POST.get("po_number", "")
+        estimation.billing_address = request.POST.get("billing_address", "")
+        estimation.shipping_address = request.POST.get("shipping_address", "")
+        estimation.gst_no = request.POST.get("gst_no", "")
+        # Estimation header updates
+        estimation.terms_conditions = request.POST.get(
+            "terms_conditions",
+            estimation.terms_conditions
+        )
+
+
+        # =========================
+        # Existing items (edit/delete)
+        # =========================
+        formset = ItemFormSet(request.POST, queryset=estimation.items.all())
+
+        if not formset.is_valid():
+            return render(request, "crm/edit_invoice.html", {
+                "invoice": invoice,
+                "estimation": estimation,
+                "formset": formset,
+                "amount_in_words": "",
+            })
+
+        sub_total = Decimal("0.00")
+
+        # Delete removed items
+        for obj in formset.deleted_objects:
+            obj.delete()
+
+        # Update existing items
+        items = formset.save(commit=False)
+        for item in items:
+            item.estimation = estimation
+            item.amount = Decimal(item.quantity) * Decimal(item.rate)
+            item.save()
+            sub_total += item.amount
+
+        # =========================
+        # NEW ITEMS (Add row)
+        # =========================
+        for d, q, u, r, t in zip(
+            request.POST.getlist("new_desc[]"),
+            request.POST.getlist("new_qty[]"),
+            request.POST.getlist("new_uom[]"),
+            request.POST.getlist("new_rate[]"),
+            request.POST.getlist("new_tax[]"),
+        ):
+            if d.strip():
+                qty = Decimal(q or 0)
+                rate = Decimal(r or 0)
+                amount = qty * rate
+
+                EstimationItem.objects.create(
+                    estimation=estimation,
+                    item_details=d.strip(),
+                    quantity=qty,
+                    uom=u,
+                    rate=rate,
+                    tax=Decimal(t or 0),
+                    amount=amount,
+                )
+                sub_total += amount
+
+        # =========================
+        # Totals & GST
+        # =========================
+        gst_amount = (sub_total * Decimal("18")) / Decimal("100")
+        total = sub_total + gst_amount
+
+        estimation.sub_total = sub_total
+        estimation.gst_amount = gst_amount
+        estimation.total = total
+        estimation.save()
+
+        invoice.total_value = total
+        invoice.balance_due = total
+        invoice.save()
+
+        return redirect("invoice_list")
+
+    # =========================
+    # GET REQUEST
+    # =========================
+    formset = ItemFormSet(queryset=estimation.items.all())
+
+    return render(request, "crm/edit_invoice.html", {
+        "invoice": invoice,
+        "estimation": estimation,
+        "formset": formset,
+        "amount_in_words": num2words(estimation.total, lang="en_IN").title() + " Only",
+        "same_state": True,
+        "cgst": estimation.gst_amount / 2,
+        "sgst": estimation.gst_amount / 2,
+        "igst": estimation.gst_amount,
+    })
+
+
 @require_POST
 def update_payment_status(request, pk):
     invoice = get_object_or_404(Invoice, pk=pk)
@@ -1733,25 +1872,34 @@ def update_payment_status(request, pk):
         invoice.save()
     return redirect('invoice_approval_table')
 
-@require_POST
+from decimal import Decimal
+from django.shortcuts import get_object_or_404, redirect
+from .models import Invoice, PaymentLog
+
 def confirm_payment_post(request, invoice_id):
     invoice = get_object_or_404(Invoice, pk=invoice_id)
+
     try:
-        amount_paid = Decimal(request.POST.get('amount_paid', 0))
-        utr_number = request.POST.get('utr_number')
-        payment_date = request.POST.get('payment_date')
-        PaymentLog.objects.create(invoice=invoice, amount_paid=amount_paid, utr_number=utr_number, payment_date=payment_date)
-        invoice.balance_due -= amount_paid
-        if invoice.balance_due <= 0:
-            invoice.status = "Paid"
-            invoice.balance_due = Decimal('0.00')
-        else:
-            invoice.status = "Partial Paid"
-        invoice.save()
+        amount_paid = Decimal(request.POST.get("amount_paid", "0"))
+        utr_number = request.POST.get("utr_number")
+        payment_date = request.POST.get("payment_date")
+
+        # ✅ Create payment log (money received)
+        PaymentLog.objects.create(
+            invoice=invoice,
+            amount_paid=amount_paid,
+            utr_number=utr_number,
+            payment_date=payment_date,
+            status="Partial Paid"
+        )
+
+        # ✅ SINGLE SOURCE OF TRUTH
+        invoice.recalculate_paid_amount()
+
     except Exception as e:
         return HttpResponse(f"Something went wrong: {e}")
-    return redirect('invoice_list')
 
+    return redirect("invoice_list")
 def get_payment_logs(request, invoice_id):
     invoice = Invoice.objects.get(pk=invoice_id)
     logs = invoice.logs.all().order_by('-payment_date')
@@ -1766,10 +1914,131 @@ def view_payment_logs(request, invoice_id):
     logs = PaymentLog.objects.filter(invoice=invoice).order_by('-payment_date')
     return render(request, 'payment_logs.html', {'invoice': invoice, 'logs': logs})
 
+from datetime import date
+from django.db.models import Sum
+from django.http import HttpResponse
+import openpyxl
+
 def invoice_list_view(request):
-    estimations = Estimation.objects.filter(status='Approved')
-    invoices = Invoice.objects.all().order_by('-created_at')
-    return render(request, 'crm/invoice_approval_list.html', {'estimations': estimations, 'invoices': invoices})
+    invoices = Invoice.objects.all()
+
+    # ---- Date Filters ----
+    filter_type = request.GET.get("range", "month")
+    start_date = end_date = None
+
+    today = date.today()
+
+    if filter_type == "month":
+        start_date = today.replace(day=1)
+        end_date = today
+
+    elif filter_type == "fy":
+        if today.month >= 4:
+            start_date = date(today.year, 4, 1)
+            end_date = date(today.year + 1, 3, 31)
+        else:
+            start_date = date(today.year - 1, 4, 1)
+            end_date = date(today.year, 3, 31)
+
+    elif filter_type == "custom":
+        start_date = request.GET.get("start_date")
+        end_date = request.GET.get("end_date")
+
+    if start_date and end_date:
+        invoices = invoices.filter(created_at__date__range=[start_date, end_date])
+
+    invoices = invoices.order_by("-created_at")
+
+    from django.db.models import Sum
+    from .models import PaymentLog
+
+    summary = invoices.aggregate(
+        total_amount=Sum("total_value"),
+        balance_amount=Sum("balance_due"),
+    )
+
+    # ✅ Paid Amount = ALL money received (NO STATUS FILTER)
+    paid_amount = PaymentLog.objects.filter(
+        invoice__in=invoices
+    ).aggregate(
+        total=Sum("amount_paid")
+    )["total"] or 0
+
+    gst_summary = invoices.aggregate(
+        gst_collected=Sum("estimation__gst_amount")
+    )
+
+    context = {
+        "invoices": invoices,
+        "summary": {
+            "count": invoices.count(),
+            "total": summary["total_amount"] or 0,
+            "paid": paid_amount,                      # ✅ FIXED
+            "balance": summary["balance_amount"] or 0,
+            "gst": gst_summary["gst_collected"] or 0,
+        },
+        "filter_type": filter_type,
+        "start_date": start_date,
+        "end_date": end_date,
+    }
+
+    return render(request, "crm/invoice_approval_list.html", context)
+
+
+# crm/views.py
+import openpyxl
+from django.http import HttpResponse
+from datetime import date
+from .models import Invoice
+
+def export_invoice_summary(request):
+    invoices = Invoice.objects.select_related("estimation", "estimation__company_name")
+
+    # 🔹 Date filters (same as invoice list)
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+
+    if start_date and end_date:
+        invoices = invoices.filter(created_at__date__range=[start_date, end_date])
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Invoice Summary"
+
+    # 🔹 Header row
+    ws.append([
+        "Invoice No",
+        "Invoice Date",
+        "Client",
+        "Total Amount",
+        "Paid Amount",
+        "Balance Due",
+        "Status",
+    ])
+
+    # 🔹 Data rows
+    for inv in invoices:
+        ws.append([
+            inv.invoice_no,
+            inv.created_at.strftime("%d-%m-%Y"),
+            str(inv.estimation.company_name),
+            float(inv.total_value),
+            float(inv.paid_amount),
+            float(inv.balance_due),
+            inv.status,
+        ])
+
+    # 🔹 Response
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = (
+        "attachment; filename=invoice_summary.xlsx"
+    )
+
+    wb.save(response)
+    return response
+
 
 def invoice_logs_api(request, invoice_id):
     logs = PaymentLog.objects.filter(invoice_id=invoice_id).order_by('-payment_date')
@@ -1892,6 +2161,87 @@ def get_filtered_invoices(request):
         invoices = invoices.filter(estimation__lead_no=lead_no)
 
     return invoices
+
+import openpyxl
+from django.http import HttpResponse
+from decimal import Decimal
+from .models import Invoice
+from django.conf import settings
+
+
+def export_gst_excel(request):
+    invoices = Invoice.objects.select_related(
+        "estimation", "estimation__company_name"
+    )
+
+    # ---- Date filters ----
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+
+    if start_date and end_date:
+        invoices = invoices.filter(created_at__date__range=[start_date, end_date])
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "GST Report"
+
+    # ---- Header (GST-ready) ----
+    ws.append([
+        "Invoice No",
+        "Invoice Date",
+        "Client Name",
+        "Client GSTIN",
+        "State Type",
+        "Taxable Value",
+        "CGST",
+        "SGST",
+        "IGST",
+        "Total GST",
+        "Invoice Total",
+    ])
+
+    OUR_STATE_CODE = getattr(settings, "GST_STATE_CODE", "29")  # Karnataka default
+
+    for inv in invoices:
+        est = inv.estimation
+        gst_no = est.gst_no or ""
+
+        taxable_value = est.sub_total - est.discount
+        gst_amount = est.gst_amount
+
+        # ---- GST Logic ----
+        if gst_no and gst_no[:2] == OUR_STATE_CODE:
+            cgst = gst_amount / 2
+            sgst = gst_amount / 2
+            igst = Decimal("0.00")
+            state_type = "Intra-State"
+        else:
+            cgst = Decimal("0.00")
+            sgst = Decimal("0.00")
+            igst = gst_amount
+            state_type = "Inter-State"
+
+        ws.append([
+            inv.invoice_no,
+            inv.created_at.strftime("%d-%m-%Y"),
+            str(est.company_name),
+            gst_no or "URP",
+            state_type,
+            float(taxable_value),
+            float(cgst),
+            float(sgst),
+            float(igst),
+            float(gst_amount),
+            float(inv.total_value),
+        ])
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = "attachment; filename=GST_Report.xlsx"
+
+    wb.save(response)
+    return response
 
 
 

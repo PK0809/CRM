@@ -345,6 +345,11 @@ def generate_dc_no():
 # ====================================================
 #  Invoice
 # ====================================================
+from datetime import timedelta
+from decimal import Decimal
+from django.conf import settings
+from django.db import models
+
 class Invoice(models.Model):
     STATUS_CHOICES = [
         ('Unpaid', 'Unpaid'),
@@ -355,23 +360,68 @@ class Invoice(models.Model):
 
     estimation = models.ForeignKey(Estimation, on_delete=models.CASCADE)
     invoice_no = models.CharField(max_length=50, unique=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     credit_days = models.PositiveIntegerField(default=0)
+
     remarks = models.TextField(blank=True)
     is_approved = models.BooleanField(default=False)
+
     total_value = models.DecimalField(max_digits=12, decimal_places=2)
-    paid_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
-    balance_due = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    paid_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
+    balance_due = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
+
     payment_date = models.DateField(null=True, blank=True)
     utr_number = models.CharField(max_length=100, blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Unpaid')
 
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='Unpaid'
+    )
+
+    # ✅ BUSINESS LOGIC
     @property
     def due_date(self):
         return self.created_at + timedelta(days=self.credit_days or 30)
 
+    def can_edit(self):
+        """
+        Invoice can be edited ONLY if:
+        - No payment logs exist
+        - Status is not Paid / Partial Paid
+        """
+        if self.logs.exists():
+            return False
+
+        if self.status in ["Paid", "Partial Paid"]:
+            return False
+
+        return True
+
     def __str__(self):
         return self.invoice_no
+
+class InvoiceEditLog(models.Model):
+    invoice = models.ForeignKey(
+        Invoice,
+        on_delete=models.CASCADE,
+        related_name="edit_logs"
+    )
+    edited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True
+    )
+    edited_at = models.DateTimeField(auto_now_add=True)
+    old_total = models.DecimalField(max_digits=12, decimal_places=2)
+    new_total = models.DecimalField(max_digits=12, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.invoice.invoice_no} edited on {self.edited_at}"
+
 
 
 # ====================================================
