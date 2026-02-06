@@ -1952,36 +1952,36 @@ def invoice_list_view(request):
 from django.db.models import Sum
 from crm.models import PaymentLog
 
-total_summary = invoices.aggregate(
-    total_amount=Sum("total_value"),
-    balance_amount=Sum("balance_due"),
-)
-
-paid_summary = PaymentLog.objects.filter(
-    invoice__in=invoices
-).aggregate(
-    paid_amount=Sum("amount_paid")
-)
-
-gst_summary = invoices.aggregate(
-    gst_collected=Sum("estimation__gst_amount")
-)
-
-context = {
-    "invoices": invoices,
-    "summary": {
-        "count": invoices.count(),
-        "total": total_summary["total_amount"] or 0,
-        "paid": paid_summary["paid_amount"] or 0,
-        "balance": total_summary["balance_amount"] or 0,
-        "gst": gst_summary["gst_collected"] or 0,
-    },
-    "filter_type": filter_type,
-    "start_date": start_date,
-    "end_date": end_date,
-}
-
-return render(request, "crm/invoice_approval_list.html", context)
+    total_summary = invoices.aggregate(
+        total_amount=Sum("total_value"),
+        balance_amount=Sum("balance_due"),
+    )
+    
+    paid_summary = PaymentLog.objects.filter(
+        invoice__in=invoices
+    ).aggregate(
+        paid_amount=Sum("amount_paid")
+    )
+    
+    gst_summary = invoices.aggregate(
+        gst_collected=Sum("estimation__gst_amount")
+    )
+    
+    context = {
+        "invoices": invoices,
+        "summary": {
+            "count": invoices.count(),
+            "total": total_summary["total_amount"] or 0,
+            "paid": paid_summary["paid_amount"] or 0,
+            "balance": total_summary["balance_amount"] or 0,
+            "gst": gst_summary["gst_collected"] or 0,
+        },
+        "filter_type": filter_type,
+        "start_date": start_date,
+        "end_date": end_date,
+    }
+    
+    return render(request, "crm/invoice_approval_list.html", context)
 
 
 
