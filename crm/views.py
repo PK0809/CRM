@@ -1799,9 +1799,11 @@ def mark_under_review(request, pk):
 
 
 def invoices_view(request):
-    estimations_without_invoice = Estimation.objects.filter(
-        invoice__isnull=True
-    ).exclude(status="Rejected")
+    estimations_without_invoice = (
+        Estimation.objects
+        .filter(invoices__isnull=True)   # ✅ CORRECT
+        .exclude(status="Rejected")
+    )
 
     return render(
         request,
@@ -1810,6 +1812,7 @@ def invoices_view(request):
             "estimations_without_invoice": estimations_without_invoice
         }
     )
+
 
 from pathlib import Path
 from decimal import Decimal, ROUND_HALF_UP
