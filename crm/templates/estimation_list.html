@@ -140,9 +140,31 @@
                                         ❌ Lost
                                     </button>
 
-                                {% elif s == "Approved" or s == "Invoiced" %}
+                                {% elif s == "Approved" %}
 
-                                    {# 🚚 Delivery Challan #}
+                                    {# 🧾 Generate Invoice #}
+                                    <form method="POST" action="{% url 'approve_invoice' est.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit" name="action" value="approve"
+                                                class="block w-full text-left px-4 py-2 bg-green-600 text-white text-sm hover:bg-green-700">
+                                            🧾 Generate Invoice
+                                        </button>
+                                    </form>
+
+                                    <div class="border-t my-1"></div>
+
+                                    {# 🚚 Delivery Challan (optional) #}
+                                    <a href="{% url 'create_dc' est.id %}"
+                                    class="block px-4 py-2 hover:bg-indigo-100 text-sm">
+                                        🚚 Delivery Challan
+                                    </a>
+
+                                {% elif s == "Invoiced" %}
+
+                                    <div class="block px-4 py-2 text-gray-500 text-sm cursor-not-allowed">
+                                        ✅ Invoice Generated
+                                    </div>
+
                                     <a href="{% url 'create_dc' est.id %}"
                                     class="block px-4 py-2 hover:bg-indigo-100 text-sm">
                                         🚚 Delivery Challan

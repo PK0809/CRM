@@ -49,6 +49,9 @@
             text-align: right;
             margin-top: 60px;
         }
+        thead { display: table-header-group; }
+        tfoot { display: table-footer-group; }
+        tr { page-break-inside: avoid; }
     </style>
 </head>
 <body>
@@ -67,8 +70,11 @@
                     GSTIN: 29AVXPP2341P1ZJ &nbsp;
                 </td>
                 <td style="width: 30%; vertical-align: middle; text-align: right;">
-                    <div style="font-size: 19px; font-weight: bold;">TAX INVOICE</div>
-                    <div style="margin-top: 10px; font-size: 12px;"><strong>Invoice# {{ invoice.invoice_no }}</strong></div>
+                    <br>
+                    <div style="font-size: 22px; font-weight: bold;">TAX INVOICE</div>
+                    <br>
+                    <br>
+                    <div style="margin-top: 10px; font-size: 13px;"><strong>Invoice# {{ invoice.invoice_no }}</strong></div>
                 </td>
             </tr>
         </table>
@@ -78,22 +84,22 @@
         <tr>
             <td style="width: 30%; vertical-align: top; padding: 6px;">
                 <table style="width: 100%; border: none; border-collapse: collapse; font-size: 11px;">
-                    <tr><td style="border: none;"><strong>Invoice Date</strong></td><td style="border: none; width: 10px;">:</td><td style="border: none;"><strong>{{ invoice.created_at|date:"d/m/Y" }}</strong></td></tr>
-                    <tr><td style="border: none;"><strong>Terms</strong></td><td style="border: none; width: 10px;">:</td><td style="border: none;"><strong>Net {{ invoice.credit_days|default:"0" }}</strong></td></tr>
-                    <tr><td style="border: none;"><strong>Due Date</strong></td><td style="border: none; width: 10px;">:</td><td style="border: none;"><strong>{{ due_date|default:'-'|date:"d/m/Y" }}</strong></td></tr>
+                    <tr><td style="border: none;"><strong>Invoice Date</strong></td><td style="border: none; width: 10px;">:</td><td style="border: none;"><strong>{{ invoice.invoice_date|date:"d/m/Y" }}</strong></td></tr>
+                    <tr><td style="border: none;"><strong>Payment Terms</strong></td><td style="border: none; width: 10px;">:</td><td style="border: none;"><strong>Net {{ invoice.credit_days }}</strong></td></tr>
+                    <tr><td style="border: none;"><strong>Due Date</strong></td><td style="border: none; width: 10px;">:</td><td style="border: none;"><strong>{{ due_date|date:"d/m/Y" }}</strong></td></tr>
                     <tr><td style="border: none;"><strong>P.O #</strong></td><td style="border: none; width: 10px;">:</td><td style="border: none;"><strong>{{ estimation.po_number }}</strong></td></tr>
                     <tr><td style="border: none;"><strong>Quote No</strong></td><td style="border: none; width: 10px;">:</td><td style="border: none;"><strong>{{ estimation.quote_no }}</strong></td></tr>
                 </table>
             </td>
             <td style="width: 35%; vertical-align: top; padding: 6px;">
-                <strong>Bill To :</strong><br>
-                <span style="color:#003399; font-weight: bold;">{{ estimation.company_name|default:"-" }}</span><br>
+                <strong>Bill To :</strong><br><br>
+                <span style="color:#000399; font-weight: bold; font-size: 12px;">{{ estimation.company_name|default:"-" }}</span><br>
                 {{ estimation.billing_address|linebreaksbr }}<br>
-                GSTIN {{ estimation.gst_no }}
+                GSTIN {{ estimation.gst_no|default:"URP" }}
             </td>
             <td style="width: 35%; vertical-align: top; padding: 6px;">
-                <strong>Ship To :</strong><br>
-                <span style="color:#003399; font-weight: bold;">{{ estimation.company_name|default:"-" }}</span><br>
+                <strong>Ship To :</strong><br><br>
+                <span style="color:#003399; font-weight: bold; font-size: 12px;">{{ estimation.company_name|default:"-" }}</span><br>
                 {{ estimation.shipping_address|linebreaksbr }}
             </td>
         </tr>
@@ -105,6 +111,7 @@
             <tr>
                 <th style="width: 5%; text-align: left;">#</th>
                 <th style="width: 50%; text-align: left;">Description</th>
+                <th style="width: 10%; text-align: left;">HSN / SAC</th>
                 <th style="width: 7%; text-align: right;">Qty</th>
                 <th style="width: 8%; text-align: right;">UOM</th>
                 <th style="width: 10%; text-align: right;">Rate</th>
@@ -115,8 +122,9 @@
         <tbody>
             {% for item in items %}
             <tr>
-                <td style="text-align: left;">{{ forloop.counter }}</td>
+                <td style="text-align: left;">{{ forloop.counter }}</td>            
                 <td style="text-align: left;">{{ item.item_details }}</td>
+                <td style="text-align: right; white-space: nowrap;">{{ item.hsn_sac|default:"-" }}</td>
                 <td style="text-align: right; white-space: nowrap;">{{ item.quantity }}</td>
                 <td style="text-align: right; white-space: nowrap;">
                     {{ item.uom|default:"Nos" }}
@@ -140,26 +148,57 @@
                 <table style="width: 100%; border-collapse: collapse;">
                     <tr>
                         <td style="border: 1px solid #999; padding: 6px;">Sub Total</td>
-                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">{{ estimation.sub_total }}</td>
+                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">
+                            {{ invoice.total_value|floatformat:2 }}
+                        </td>
                     </tr>
+
                     {% if same_state %}
                     <tr>
                         <td style="border: 1px solid #999; padding: 6px;">SGST (9%)</td>
-                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">{{ sgst }}</td>
+                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">
+                            {{ sgst|floatformat:2 }}
+                        </td>
                     </tr>
                     <tr>
                         <td style="border: 1px solid #999; padding: 6px;">CGST (9%)</td>
-                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">{{ cgst }}</td>
+                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">
+                            {{ cgst|floatformat:2 }}
+                        </td>
                     </tr>
                     {% else %}
                     <tr>
                         <td style="border: 1px solid #999; padding: 6px;">IGST (18%)</td>
-                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">{{ igst }}</td>
+                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">
+                            {{ igst|floatformat:2 }}
+                        </td>
                     </tr>
-                    {% endif %}
+                    {% endif %} 
                     <tr>
-                        <td style="border: 1px solid #999; padding: 6px;"><strong>Total</strong></td>
-                        <td style="border: 1px solid #999; padding: 6px; text-align: right;"><strong>{{ estimation.total }}</strong></td>
+                        <td style="border: 1px solid #999; padding: 6px;">
+                            <strong>Total Amount</strong>
+                        </td>
+                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">
+                            <strong>{{ invoice.total_value }}</strong>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="border: 1px solid #999; padding: 6px;">
+                            Paid Amount
+                        </td>
+                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">
+                            {{ invoice.paid_amount }}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="border: 1px solid #999; padding: 6px;">
+                            <strong>Balance Amount</strong>
+                        </td>
+                        <td style="border: 1px solid #999; padding: 6px; text-align: right;">
+                            <strong>{{ invoice.balance_due }}</strong>
+                        </td>
                     </tr>
                 </table>
             </td>
@@ -167,34 +206,56 @@
     </table>
 
     <!-- Amount in Words and Footer -->
-    <table style="width: 100%; margin-top: 10px; font-size: 11px;">
-        <tr>
-            <td colspan="2" style="border: 1px solid #999; padding: 6px;"><strong>Total In Words :</strong> {{ amount_in_words }}</td>
-        </tr>
-        <tr>
-            <td style="width: 70%; vertical-align: top; border: 1px solid #999; padding: 6px;">
-                <strong>Payment Options</strong><br>
-                <u>For Bank Transfer Please Find the details</u><br>
-                Name: B16 VENTURES<br>
-                Account Number: 233005001741<br>
-                IFSC Code: ICIC0002330<br>
-                Bank: ICICI Bank<br>
-                Branch: TC Palya, Bangalore
-                <br><br><strong>Terms & Conditions :</strong>
-                <ol style="margin: 0; padding-left: 16px;">
-                    <li>This is a system generated invoice. Hence, signature is not needed.</li>
-                    <li>Payment Terms: 100% Advance Payment.</li>
-                    <li>Service Warranty: Depending upon the Availed Service.</li>
-                    <li>All Products and Accessories Carries Standard OEM Warranty.</li>
-                </ol>
-                <br><br>
-                For any clarification please write to us at <strong>support@isecuresolutions.in</strong>
-            </td>
-            <td style="width: 30%; vertical-align: top; border: 1px solid #999; text-align: center;">
-                For iSecure Solutions
-            </td>
-        </tr>
-    </table>
+    <table style="width:100%; margin-top:10px; font-size:11px; border-collapse:collapse;">
+    
+    <!-- Amount in Words -->
+    <tr>
+        <td colspan="2" style="border:1px solid #999; padding:6px;">
+            <strong>Total In Words :</strong> {{ amount_in_words }}
+        </td>
+    </tr>
+
+    <tr>
+        <!-- LEFT reminder column -->
+        <td style="width:70%; vertical-align:top; border:1px solid #999; padding:6px;">
+            
+            <strong>Payment Options</strong><br><br>
+            <u>For Bank Transfer Please Find the details</u><br><br>
+
+            Name: B16 VENTURES<br>
+            Account Number: 233005001741<br>
+            IFSC Code: ICIC0002330<br>
+            Bank: ICICI Bank<br>
+            Branch: TC Palya, Bangalore
+
+            <br><br><br>
+
+            <strong>Terms & Conditions :</strong><br><br>
+
+            <div style="
+                font-family: Arial, sans-serif;
+                font-size: 10px;
+                line-height: 1.0;
+            ">
+                {% for line in terms_pdf.splitlines %}
+                    <div style="margin-bottom: 4px;">
+                        {{ line }}
+                    </div>
+                {% endfor %}
+            </div>
+
+
+
+            <br>
+            For any clarification please write to us at
+            <strong>support@isecuresolutions.in</strong>
+        </td>
+
+        <!-- RIGHT signature column -->
+        <td style="width:30%; vertical-align:top; border:1px solid #999; text-align:center; padding:6px;">
+            <strong>For iSecure Solutions</strong>
+    </tr>
+</table>
 </body>
 </html>
 {% endspaceless %}
