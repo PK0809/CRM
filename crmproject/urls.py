@@ -80,7 +80,8 @@ urlpatterns = [
 
     
     # Invoices
-    path("invoices/", invoices_view, name="invoices"),
+    path("invoices/", views.invoices_view, name="invoices"),
+    path("invoice-list/", views.invoice_list, name="invoice_list"),
     path('invoice/generate/<int:pk>/', views.generate_invoice_from_estimation, name='generate_invoice'),
     path('invoice/create/', views.create_invoice, name='create_invoice'),
     path('invoice/<int:pk>/update-payment-status/', views.update_payment_status, name='update_payment_status'),
