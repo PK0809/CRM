@@ -5,7 +5,6 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
 from django.views.static import serve
-from crm.views import invoice_list_view
 
 from importlib import import_module
 _crm_views = import_module('crm.views')
@@ -80,8 +79,8 @@ urlpatterns = [
 
     
     # Invoices
-    path("invoices/", invoice_list_view, name="invoices"),
-    path("invoices/", views.invoice_list_view, name="invoices"),
+    path('invoices/', views.invoice_list_view, name='invoice_list'),
+    path('invoice/view/<int:pk>/', views.invoice_detail_view, name='invoice_detail'),
     path('invoice/generate/<int:pk>/', views.generate_invoice_from_estimation, name='generate_invoice'),
     path('invoice/create/', views.create_invoice, name='create_invoice'),
     path('invoice/<int:pk>/update-payment-status/', views.update_payment_status, name='update_payment_status'),
@@ -95,8 +94,6 @@ urlpatterns = [
     path("invoices/export/", views.export_invoice_summary, name="export_invoice_summary"),
     path("invoices/export-gst/", views.export_gst_excel, name="export_gst_excel"),
     path("approve-invoice/<int:est_id>/", views.approve_invoice, name="approve_invoice"),
-   
-
 
 
     # Reports
