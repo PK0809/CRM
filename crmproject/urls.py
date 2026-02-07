@@ -1,6 +1,5 @@
 ﻿from django.contrib import admin
-from django.urls import path, include
-from django.urls import path, re_path
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
@@ -94,12 +93,13 @@ urlpatterns = [
     path("invoice/<int:invoice_id>/edit/", views.edit_invoice, name="edit_invoice"),
     path("invoices/export/", views.export_invoice_summary, name="export_invoice_summary"),
     path("invoices/export-gst/", views.export_gst_excel, name="export_gst_excel"),
+    path("approve-invoice/<int:est_id>/", views.approve_invoice, name="approve_invoice"),
 
 
     # Reports
-    path('reports/', report_list, name='report_list'),
-    path('reports/export/excel/', export_report_excel, name='export_report_excel'),
-    path('reports/export/pdf/', export_report_pdf, name='export_report_pdf'),
+    path("reports/", report_list, name="report_list"),
+    path("reports/export/excel/", views.export_report_excel, name="export_report_excel"),
+    path("reports/export/pdf/", views.export_report_pdf, name="export_report_pdf"),
 
     # Other simple pages
     path('purchase-order/', views.purchase_order_view, name='purchase_order'),
