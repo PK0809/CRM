@@ -1521,21 +1521,68 @@ def estimation_list(request):
         "today": today,
     })
 
+from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib import messages
+from django.views.decorators.http import require_http_methods
+from .models import Estimation, Invoice
+from .utils import generate_invoice_number
+
+
+@require_http_methods(["GET", "POST"])
 def approve_estimation(request, pk):
     estimation = get_object_or_404(Estimation, pk=pk)
-    if request.method == 'POST':
-        estimation.status = 'Approved'
-        estimation.credit_days = request.POST.get('credit_days')
-        estimation.remarks = request.POST.get('remarks')
-        estimation.po_number = request.POST.get('po_number')
-        estimation.po_date = request.POST.get('po_date') or None
-        estimation.po_received_date = request.POST.get('po_received_date') or None
-        if 'po_attachment' in request.FILES:
-            estimation.po_attachment = request.FILES['po_attachment']
-        estimation.save()
-        return redirect('invoice_list')
-    form = ApprovalForm(instance=estimation)
-    return render(request, 'crm/approve_estimation.html', {'estimation': estimation, 'form': form})
+
+    # ==========================
+    # SHOW APPROVAL FORM (GET)
+    # ==========================
+    if request.method == "GET":
+        return render(
+            request,
+            "crm/approve_estimation.html",
+            {"estimation": estimation}
+        )
+
+    # ==========================
+    # APPROVE + GENERATE INVOICE (POST)
+    # ==========================
+    # Prevent duplicate invoice
+    if Invoice.objects.filter(estimation=estimation).exists():
+        messages.warning(request, "Invoice already generated.")
+        return redirect("invoice_list")
+
+    # Update estimation details
+    estimation.credit_days = request.POST.get("credit_days") or 0
+    estimation.po_number = request.POST.get("po_number")
+    estimation.po_date = request.POST.get("po_date") or None
+    estimation.po_received_date = request.POST.get("po_received_date") or None
+    estimation.remarks = request.POST.get("remarks")
+
+    if "po_attachment" in request.FILES:
+        estimation.po_attachment = request.FILES["po_attachment"]
+
+    # ✅ CREATE INVOICE IMMEDIATELY
+    Invoice.objects.create(
+        estimation=estimation,
+        invoice_no=generate_invoice_number(),
+        total_value=estimation.total,
+        paid_amount=0,
+        balance_due=estimation.total,
+        credit_days=estimation.credit_days or 0,
+        remarks=estimation.remarks or "",
+        status="Unpaid",
+        is_approved=True,   # 🔑 makes it appear in Generated Invoices
+    )
+
+    # ✅ MOVE ESTIMATION OUT OF APPROVAL FLOW
+    estimation.status = "Invoiced"
+    estimation.save(update_fields=["status", "credit_days", "po_number", "po_date",
+                                   "po_received_date", "remarks", "po_attachment"])
+
+    messages.success(request, "Invoice generated successfully.")
+
+    # 🚀 GO DIRECTLY TO GENERATED INVOICES
+    return redirect("invoice_list")
+
 
 @require_POST
 def reject_estimation(request, pk):
@@ -1546,9 +1593,23 @@ def reject_estimation(request, pk):
     return redirect("estimation")
 
 def invoice_approval_table(request):
-    estimations = Estimation.objects.filter(status='Approved', invoice__isnull=True)
-    invoices = Invoice.objects.all().order_by('-created_at')
-    return render(request, 'invoice_approval_list.html', {'estimations': estimations, 'invoices': invoices})
+    estimations = Estimation.objects.filter(
+        status="Approved",
+        invoices__isnull=True   # ✅ FIXED
+    ).order_by("-created_at")
+
+    invoices = Invoice.objects.all().order_by("-created_at")
+
+    return render(
+        request,
+        "crm/invoice_approval_list.html",
+        {
+            "estimations": estimations,
+            "invoices": invoices,
+        }
+    )
+
+
 
 @require_POST
 def reject_invoice(request, pk):
@@ -1612,55 +1673,109 @@ def invoice_detail_view(request, pk):
         'estimation': estimation, 'items': items, 'invoice': invoice, 'amount_in_words': inr_currency_words(estimation.total),
     })
 
-from django.utils.timezone import now
-from datetime import timedelta
+from django.views.decorators.http import require_POST
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
 
 @require_POST
 def approve_invoice(request, est_id):
     estimation = get_object_or_404(Estimation, id=est_id)
+    action = request.POST.get("action")
+
+    # ❌ Reject
+    if action == "reject":
+        estimation.status = "Rejected"
+        estimation.remarks = request.POST.get("reason", "")
+        estimation.save()
+        messages.error(request, "Quotation rejected.")
+        return redirect("invoice_list")
+
+    # ✅ Approve
+    if action == "approve":
+        if Invoice.objects.filter(estimation=estimation).exists():
+            messages.warning(request, "Invoice already exists.")
+            return redirect("invoice_list")
+
+        Invoice.objects.create(
+            estimation=estimation,
+            invoice_no=generate_invoice_number(),
+            total_value=estimation.total,
+            paid_amount=0,
+            balance_due=estimation.total,
+            credit_days=estimation.credit_days or 0,
+            remarks=estimation.remarks or "",
+            status="Unpaid",
+            is_approved=True,   # 🔑 THIS WAS MISSING
+        )
+
+        estimation.status = "Invoiced"
+        estimation.save(update_fields=["status"])
+
+        messages.success(request, "Invoice generated successfully.")
+        return redirect("invoice_list")
+
+    return redirect("invoice_list")
+
+
+
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+
+def generate_invoice_from_estimation(request, pk):
+    estimation = get_object_or_404(Estimation, pk=pk)
+
+    # 🔒 Prevent duplicate invoice
     if Invoice.objects.filter(estimation=estimation).exists():
-        return redirect('invoice_list')
+        messages.warning(request, "Invoice already exists.")
+        return redirect("invoice_list")
 
-    estimation.status = 'Approved'
-    estimation.save()
-
-    credit_days = estimation.credit_days or 0
-    # due date will be computed by Invoice.due_date property from created_at + credit_days
+    # ✅ Create invoice correctly
     Invoice.objects.create(
         estimation=estimation,
         invoice_no=generate_invoice_number(),
-        created_at=now(),
         total_value=estimation.total,
+        paid_amount=0,
         balance_due=estimation.total,
-        credit_days=credit_days,
+        credit_days=estimation.credit_days or 0,
         remarks=estimation.remarks or "",
-        is_approved=True,
-        status='Pending',
+        status="Unpaid",
+        is_approved=True,   # 🔑 CRITICAL
     )
 
-    estimation.status = 'Invoiced'
-    estimation.save()
-    return redirect('invoice_list')
+    # ✅ Move estimation out of approvals
+    estimation.status = "Invoiced"
+    estimation.save(update_fields=["status"])
 
+    messages.success(request, "Invoice generated successfully.")
 
-@require_POST
-def generate_invoice_from_estimation(request, pk):
-    estimation = get_object_or_404(Estimation, pk=pk)
-    if not Invoice.objects.filter(estimation=estimation).exists():
-        Invoice.objects.create(estimation=estimation, invoice_no=generate_invoice_number(), is_approved=False)
-    return redirect('invoice_approval_list')
+    # ✅ GO TO GENERATED INVOICES TABLE
+    return redirect("invoice_list")
+
+def invoice_list(request):
+    invoices = Invoice.objects.filter(
+        is_approved=True
+    ).order_by("-created_at")
+
+    return render(
+        request,
+        "crm/invoice_list.html",
+        {"invoices": invoices}
+    )
+
+from decimal import Decimal
 
 def estimation_detail_view(request, pk):
     estimation = get_object_or_404(Estimation, pk=pk)
     items = estimation.items.all()
-    total = sum((item.amount for item in items), Decimal('0.00'))
+    total = sum((item.amount for item in items), Decimal("0.00"))
+
     return render(
         request,
-        'crm/estimation_detail.html',
+        "crm/estimation_detail.html",
         {
-            'estimation': estimation,
-            'items': items,
-            'total': total,
+            "estimation": estimation,
+            "items": items,
+            "total": total,
         }
     )
 
@@ -1674,176 +1789,243 @@ from django.contrib import messages
 def mark_under_review(request, pk):
     est = get_object_or_404(Estimation, pk=pk)
 
-    est.status = "Under Review"
+    est.status = "Pending"  # ✅ valid status
     est.follow_up_date = request.POST.get("follow_up_date")
     est.follow_up_remarks = request.POST.get("follow_up_remarks")
     est.save()
 
-    messages.success(request, "Estimation marked as Under Review")
+    messages.success(request, "Estimation marked for follow-up")
     return redirect("estimation_list")
 
 
-
-
 def invoices_view(request):
-    estimations_without_invoice = Estimation.objects.filter(generated_invoice__isnull=True)
-    return render(request, 'invoices.html', {'estimations_without_invoice': estimations_without_invoice})
+    estimations_without_invoice = Estimation.objects.filter(
+        invoice__isnull=True
+    ).exclude(status="Rejected")
+
+    return render(
+        request,
+        "crm/invoices.html",
+        {
+            "estimations_without_invoice": estimations_without_invoice
+        }
+    )
+
+from pathlib import Path
+from decimal import Decimal, ROUND_HALF_UP
+from datetime import timedelta
+
+from django.conf import settings
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+
+from num2words import num2words
+from weasyprint import HTML
+
+from .models import Invoice
+
 
 def invoice_pdf_view(request, invoice_id):
     invoice = get_object_or_404(Invoice, pk=invoice_id)
+    invoice.refresh_from_db()  # 🔴 always load latest saved data
+
     estimation = invoice.estimation
-    items = EstimationItem.objects.filter(estimation=estimation)
-    due_date = invoice.created_at + timedelta(days=invoice.credit_days or 0)
-    total = estimation.total
+    items = estimation.items.all()
+
+    # =========================
+    # DATES
+    # =========================
+    due_date = invoice.invoice_date + timedelta(days=invoice.credit_days or 0)
+
+    # =========================
+    # AMOUNTS (SOURCE OF TRUTH)
+    # =========================
+    sub_total = estimation.sub_total or Decimal("0.00")
+    gst_amount = estimation.gst_amount or Decimal("0.00")
+    total = invoice.total_value or Decimal("0.00")
+
+    # =========================
+    # AMOUNT IN WORDS
+    # =========================
     rupees = int(total)
-    paise = int(round((total - rupees) * 100))
-    from num2words import num2words
+    paise = int((total - rupees) * 100)
+
     amount_in_words = f"Rupees {num2words(rupees, lang='en_IN').title()}"
     if paise > 0:
         amount_in_words += f" and {num2words(paise, lang='en_IN').title()} Paise"
     amount_in_words += " Only"
-    company_gst_state_code = estimation.gst_no[:2] if estimation.gst_no else ''
-    our_gst_state_code = "29"
-    same_state = (company_gst_state_code == our_gst_state_code)
+
+    # =========================
+    # GST SPLIT (DISPLAY ONLY)
+    # =========================
+    company_gst_state_code = estimation.gst_no[:2] if estimation.gst_no else ""
+    same_state = company_gst_state_code == "29"
+
     if same_state:
-        sgst = cgst = estimation.gst_amount / 2
-        igst = 0
+        cgst = (gst_amount / 2).quantize(Decimal("0.01"))
+        sgst = (gst_amount / 2).quantize(Decimal("0.01"))
+        igst = Decimal("0.00")
     else:
-        sgst = cgst = 0
-        igst = estimation.gst_amount
+        cgst = sgst = Decimal("0.00")
+        igst = gst_amount.quantize(Decimal("0.01"))
+
+    # =========================
+    # CLEAN TERMS FOR PDF
+    # =========================
+    raw_terms = estimation.terms_conditions or ""
+
+    terms_pdf = strip_tags(raw_terms)
+    terms_pdf = (
+        terms_pdf
+        .replace("Payment Terms", "\n• Payment Terms")
+        .replace("Service Warranty", "\n• Service Warranty")
+        .replace("All Products and Accessories", "\n• All Products and Accessories")
+        .strip()
+    )
+
+    # =========================
+    # LOGO
+    # =========================
     logo_path = Path(settings.STATIC_ROOT) / "images/logo.png"
-    logo_uri = logo_path.as_uri()
-    html_string = render_to_string("invoice_pdf_weasy.html", {
-        'invoice': invoice, 'estimation': estimation, 'items': items, 'due_date': due_date,
-        'amount_in_words': amount_in_words, 'same_state': same_state,
-        'sgst': sgst, 'cgst': cgst, 'igst': igst, 'logo_uri': logo_uri,
-    })
-    from weasyprint import HTML
-    pdf_file = HTML(string=html_string, base_url=settings.STATIC_ROOT.as_uri()).write_pdf()
-    response = HttpResponse(pdf_file, content_type='application/pdf')
-    response['Content-Disposition'] = f'filename="{invoice.invoice_no}.pdf"'
+
+    # =========================
+    # RENDER PDF
+    # =========================
+    html_string = render_to_string(
+        "invoice_pdf_weasy.html",
+        {
+            "invoice": invoice,
+            "estimation": estimation,
+            "items": items,
+            "due_date": due_date,
+            "sub_total": sub_total,
+            "gst_amount": gst_amount,
+            "total": total,
+            "amount_in_words": amount_in_words,
+            "same_state": same_state,
+            "cgst": cgst,
+            "sgst": sgst,
+            "igst": igst,
+            "terms_pdf": terms_pdf,
+            "logo_uri": logo_path.as_uri(),
+        }
+    )
+
+    pdf = HTML(
+        string=html_string,
+        base_url=settings.STATIC_ROOT.as_uri()
+    ).write_pdf()
+
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{invoice.invoice_no}.pdf"'
+    response["Cache-Control"] = "no-store"
     return response
 
+
 from decimal import Decimal
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, render, redirect
 from django.forms import modelformset_factory
 from django.utils.dateparse import parse_date
-from num2words import num2words
+from django.db import transaction
+from django.contrib import messages
 
 from .models import Invoice, Estimation, EstimationItem
 
 
 def edit_invoice(request, invoice_id):
     invoice = get_object_or_404(Invoice, pk=invoice_id)
-
-    # 🔒 HARD STOP – accounting safety
-    if not invoice.can_edit():
-        return redirect("invoice_list")
-
     estimation = invoice.estimation
+
+    # 🔒 Safety: block paid invoices
+    if not invoice.can_edit:
+        messages.error(request, "Paid invoices cannot be edited.")
+        return redirect("invoice_list")
 
     ItemFormSet = modelformset_factory(
         EstimationItem,
-        fields=("item_details", "uom", "quantity", "rate", "tax"),
-        extra=0,          # existing items only
+        fields=("item_details", "hsn_sac", "quantity", "uom", "rate", "tax"),
+        extra=0,
         can_delete=True
     )
 
     if request.method == "POST":
-
-        # =========================
-        # Invoice header updates
-        # =========================
-        invoice_date = request.POST.get("invoice_date")
-        if invoice_date:
-            invoice.created_at = parse_date(invoice_date)
-
-        invoice.credit_days = int(request.POST.get("credit_days", 0))
-        invoice.remarks = request.POST.get("remarks", "")
-        invoice.save()
-
-        # =========================
-        # Estimation header updates
-        # =========================
-        estimation.po_number = request.POST.get("po_number", "")
-        estimation.billing_address = request.POST.get("billing_address", "")
-        estimation.shipping_address = request.POST.get("shipping_address", "")
-        estimation.gst_no = request.POST.get("gst_no", "")
-        # Estimation header updates
-        estimation.terms_conditions = request.POST.get(
-            "terms_conditions",
-            estimation.terms_conditions
-        )
-
-
-        # =========================
-        # Existing items (edit/delete)
-        # =========================
         formset = ItemFormSet(request.POST, queryset=estimation.items.all())
 
         if not formset.is_valid():
+            print("FORMSET ERRORS:", formset.errors)
+            messages.error(request, "Please fix item errors.")
             return render(request, "crm/edit_invoice.html", {
                 "invoice": invoice,
                 "estimation": estimation,
                 "formset": formset,
-                "amount_in_words": "",
             })
 
-        sub_total = Decimal("0.00")
+        with transaction.atomic():
 
-        # Delete removed items
-        for obj in formset.deleted_objects:
-            obj.delete()
+            # =========================
+            # 1️⃣ INVOICE HEADER
+            # =========================
+            invoice_date = request.POST.get("invoice_date")
+            if invoice_date:
+                invoice.invoice_date = parse_date(invoice_date)
 
-        # Update existing items
-        items = formset.save(commit=False)
-        for item in items:
-            item.estimation = estimation
-            item.amount = Decimal(item.quantity) * Decimal(item.rate)
-            item.save()
-            sub_total += item.amount
+            invoice.credit_days = int(request.POST.get("credit_days") or 0)
+            invoice.save(update_fields=["invoice_date", "credit_days"])
 
-        # =========================
-        # NEW ITEMS (Add row)
-        # =========================
-        for d, q, u, r, t in zip(
-            request.POST.getlist("new_desc[]"),
-            request.POST.getlist("new_qty[]"),
-            request.POST.getlist("new_uom[]"),
-            request.POST.getlist("new_rate[]"),
-            request.POST.getlist("new_tax[]"),
-        ):
-            if d.strip():
-                qty = Decimal(q or 0)
-                rate = Decimal(r or 0)
-                amount = qty * rate
+            # =========================
+            # 2️⃣ ESTIMATION HEADER
+            # =========================
+            estimation.po_number = request.POST.get("po_number")
+            estimation.billing_address = request.POST.get("billing_address")
+            estimation.shipping_address = request.POST.get("shipping_address")
+            estimation.gst_no = request.POST.get("gst_no", "")
+            estimation.terms_conditions = request.POST.get(
+                "terms_conditions", ""
+            )
 
-                EstimationItem.objects.create(
-                    estimation=estimation,
-                    item_details=d.strip(),
-                    quantity=qty,
-                    uom=u,
-                    rate=rate,
-                    tax=Decimal(t or 0),
-                    amount=amount,
-                )
-                sub_total += amount
+            print("PO:", estimation.po_number)
+            print("BILL:", estimation.billing_address)
+            print("SHIP:", estimation.shipping_address)
+            print("GST:", estimation.gst_no)
+            print("TERMS:", estimation.terms_conditions)
 
-        # =========================
-        # Totals & GST
-        # =========================
-        gst_amount = (sub_total * Decimal("18")) / Decimal("100")
-        total = sub_total + gst_amount
+            estimation.save()   # 🔴 THIS WAS REQUIRED
 
-        estimation.sub_total = sub_total
-        estimation.gst_amount = gst_amount
-        estimation.total = total
-        estimation.save()
+            # =========================
+            # 3️⃣ ITEMS (EDIT / DELETE)
+            # =========================
+            sub_total = Decimal("0.00")
 
-        invoice.total_value = total
-        invoice.balance_due = total
-        invoice.save()
+            items = formset.save(commit=False)
 
+            # delete removed rows
+            for obj in formset.deleted_objects:
+                obj.delete()
+
+            for item in items:
+                item.estimation = estimation
+                item.amount = item.quantity * item.rate
+                item.save()
+                sub_total += item.amount
+
+            # =========================
+            # 4️⃣ TOTALS
+            # =========================
+            gst_amount = (sub_total * Decimal("18")) / Decimal("100")
+            total = sub_total + gst_amount
+
+            estimation.sub_total = sub_total
+            estimation.gst_amount = gst_amount
+            estimation.total = total
+            estimation.save(update_fields=["sub_total", "gst_amount", "total"])
+
+            invoice.total_value = total
+            invoice.balance_due = total - invoice.paid_amount
+            invoice.save(update_fields=["total_value", "balance_due"])
+
+        messages.success(request, "Invoice updated successfully")
         return redirect("invoice_list")
 
     # =========================
@@ -1855,12 +2037,8 @@ def edit_invoice(request, invoice_id):
         "invoice": invoice,
         "estimation": estimation,
         "formset": formset,
-        "amount_in_words": num2words(estimation.total, lang="en_IN").title() + " Only",
-        "same_state": True,
-        "cgst": estimation.gst_amount / 2,
-        "sgst": estimation.gst_amount / 2,
-        "igst": estimation.gst_amount,
     })
+
 
 
 @require_POST
@@ -1916,12 +2094,8 @@ def view_payment_logs(request, invoice_id):
 
 from datetime import date
 from django.db.models import Sum
-from django.shortcuts import render
 from django.http import HttpResponse
 import openpyxl
-
-from crm.models import Invoice, PaymentLog
-
 
 def invoice_list_view(request):
     invoices = Invoice.objects.all()
@@ -1953,17 +2127,20 @@ def invoice_list_view(request):
 
     invoices = invoices.order_by("-created_at")
 
-    # ---- Summary Calculations ----
-    total_summary = invoices.aggregate(
+    from django.db.models import Sum
+    from .models import PaymentLog
+
+    summary = invoices.aggregate(
         total_amount=Sum("total_value"),
         balance_amount=Sum("balance_due"),
     )
 
-    paid_summary = PaymentLog.objects.filter(
+    # ✅ Paid Amount = ALL money received (NO STATUS FILTER)
+    paid_amount = PaymentLog.objects.filter(
         invoice__in=invoices
     ).aggregate(
-        paid_amount=Sum("amount_paid")
-    )
+        total=Sum("amount_paid")
+    )["total"] or 0
 
     gst_summary = invoices.aggregate(
         gst_collected=Sum("estimation__gst_amount")
@@ -1973,9 +2150,9 @@ def invoice_list_view(request):
         "invoices": invoices,
         "summary": {
             "count": invoices.count(),
-            "total": total_summary["total_amount"] or 0,
-            "paid": paid_summary["paid_amount"] or 0,
-            "balance": total_summary["balance_amount"] or 0,
+            "total": summary["total_amount"] or 0,
+            "paid": paid_amount,                      # ✅ FIXED
+            "balance": summary["balance_amount"] or 0,
             "gst": gst_summary["gst_collected"] or 0,
         },
         "filter_type": filter_type,
@@ -1986,6 +2163,7 @@ def invoice_list_view(request):
     return render(request, "crm/invoice_approval_list.html", context)
 
 
+# crm/views.py
 import openpyxl
 from django.http import HttpResponse
 from datetime import date

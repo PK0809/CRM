@@ -347,30 +347,48 @@ def generate_dc_no():
 # ====================================================
 from datetime import timedelta
 from decimal import Decimal
-from django.conf import settings
 from django.db import models
+from django.db.models import Sum
+from django.utils import timezone
+from django.conf import settings
+
 
 class Invoice(models.Model):
     STATUS_CHOICES = [
-        ('Unpaid', 'Unpaid'),
-        ('Partial Paid', 'Partial Paid'),
-        ('Paid', 'Paid'),
-        ('Pending', 'Pending'),
+        ("Unpaid", "Unpaid"),
+        ("Partial Paid", "Partial Paid"),
+        ("Paid", "Paid"),
     ]
 
-    estimation = models.ForeignKey(Estimation, on_delete=models.CASCADE)
+    # 🔹 Keep FK (DO NOT REMOVE)
+    estimation = models.ForeignKey(
+        "Estimation",
+        on_delete=models.CASCADE,
+        related_name="invoices"
+    )
+
     invoice_no = models.CharField(max_length=50, unique=True)
+
+    # ✅ FIX: DateField should NOT use timezone.now (datetime)
+    invoice_date = models.DateField(default=timezone.localdate)
 
     created_at = models.DateTimeField(auto_now_add=True)
     credit_days = models.PositiveIntegerField(default=0)
 
     remarks = models.TextField(blank=True)
-    is_approved = models.BooleanField(default=False)
 
-    total_value = models.DecimalField(max_digits=12, decimal_places=2)
+    # ✅ Approved invoices must be visible/editable
+    is_approved = models.BooleanField(default=True)
+
+    # 🔑 INVOICE SNAPSHOT TOTALS (SOURCE OF TRUTH)
+    total_value = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
+
     paid_amount = models.DecimalField(
         max_digits=12, decimal_places=2, default=Decimal("0.00")
     )
+
     balance_due = models.DecimalField(
         max_digits=12, decimal_places=2, default=Decimal("0.00")
     )
@@ -379,27 +397,55 @@ class Invoice(models.Model):
     utr_number = models.CharField(max_length=100, blank=True, null=True)
 
     status = models.CharField(
-        max_length=20, choices=STATUS_CHOICES, default='Unpaid'
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="Unpaid",
     )
 
-    # ✅ BUSINESS LOGIC
+    # ==========================
+    # BUSINESS LOGIC
+    # ==========================
+
     @property
     def due_date(self):
-        return self.created_at + timedelta(days=self.credit_days or 30)
+        """
+        ✅ FIX: Due date MUST use invoice_date, not created_at
+        """
+        return self.invoice_date + timedelta(days=self.credit_days or 0)
 
+    @property
     def can_edit(self):
         """
-        Invoice can be edited ONLY if:
-        - No payment logs exist
-        - Status is not Paid / Partial Paid
+        ✅ Invoice editable unless fully paid
         """
-        if self.logs.exists():
-            return False
+        return self.status != "Paid"
 
-        if self.status in ["Paid", "Partial Paid"]:
-            return False
+    def recalculate_paid_amount(self):
+        """
+        ✅ SINGLE SOURCE OF TRUTH
+        Call after EVERY payment log save/delete
+        """
+        total_paid = (
+            self.logs.aggregate(total=Sum("amount_paid"))["total"]
+            or Decimal("0.00")
+        )
 
-        return True
+        self.paid_amount = total_paid
+        self.balance_due = self.total_value - total_paid
+
+        if self.balance_due <= 0:
+            self.status = "Paid"
+            self.balance_due = Decimal("0.00")
+        elif total_paid > 0:
+            self.status = "Partial Paid"
+        else:
+            self.status = "Unpaid"
+
+        self.save(update_fields=[
+            "paid_amount",
+            "balance_due",
+            "status",
+        ])
 
     def __str__(self):
         return self.invoice_no
@@ -413,14 +459,15 @@ class InvoiceEditLog(models.Model):
     edited_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        null=True
+        null=True,
+        blank=True
     )
     edited_at = models.DateTimeField(auto_now_add=True)
     old_total = models.DecimalField(max_digits=12, decimal_places=2)
     new_total = models.DecimalField(max_digits=12, decimal_places=2)
 
     def __str__(self):
-        return f"{self.invoice.invoice_no} edited on {self.edited_at}"
+        return f"{self.invoice.invoice_no} edited on {self.edited_at:%d-%m-%Y %H:%M}"
 
 
 
