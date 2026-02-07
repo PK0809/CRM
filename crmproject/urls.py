@@ -94,6 +94,9 @@ urlpatterns = [
     path("invoices/export/", views.export_invoice_summary, name="export_invoice_summary"),
     path("invoices/export-gst/", views.export_gst_excel, name="export_gst_excel"),
     path("approve-invoice/<int:est_id>/", views.approve_invoice, name="approve_invoice"),
+    path("invoices/", invoices_view, name="invoices"),
+    path("invoices/", invoices_view, name="invoices"),
+
 
 
     # Reports
