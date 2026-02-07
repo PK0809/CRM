@@ -2097,17 +2097,18 @@ def view_payment_logs(request, invoice_id):
     return render(request, 'payment_logs.html', {'invoice': invoice, 'logs': logs})
 
 from datetime import date
+from datetime import date
+from decimal import Decimal
+from django.shortcuts import render
 from django.db.models import Sum
-from django.http import HttpResponse
-import openpyxl
+from .models import Invoice, PaymentLog
+
 
 def invoice_list_view(request):
     invoices = Invoice.objects.all()
 
-    # ---- Date Filters ----
     filter_type = request.GET.get("range", "month")
     start_date = end_date = None
-
     today = date.today()
 
     if filter_type == "month":
@@ -2131,20 +2132,16 @@ def invoice_list_view(request):
 
     invoices = invoices.order_by("-created_at")
 
-    from django.db.models import Sum
-    from .models import PaymentLog
-
     summary = invoices.aggregate(
         total_amount=Sum("total_value"),
         balance_amount=Sum("balance_due"),
     )
 
-    # ✅ Paid Amount = ALL money received (NO STATUS FILTER)
     paid_amount = PaymentLog.objects.filter(
         invoice__in=invoices
     ).aggregate(
         total=Sum("amount_paid")
-    )["total"] or 0
+    )["total"] or Decimal("0.00")
 
     gst_summary = invoices.aggregate(
         gst_collected=Sum("estimation__gst_amount")
@@ -2154,10 +2151,10 @@ def invoice_list_view(request):
         "invoices": invoices,
         "summary": {
             "count": invoices.count(),
-            "total": summary["total_amount"] or 0,
-            "paid": paid_amount,                      # ✅ FIXED
-            "balance": summary["balance_amount"] or 0,
-            "gst": gst_summary["gst_collected"] or 0,
+            "total": summary["total_amount"] or Decimal("0.00"),
+            "paid": paid_amount,
+            "balance": summary["balance_amount"] or Decimal("0.00"),
+            "gst": gst_summary["gst_collected"] or Decimal("0.00"),
         },
         "filter_type": filter_type,
         "start_date": start_date,
