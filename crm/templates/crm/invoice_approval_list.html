@@ -5,89 +5,6 @@
 <div class="min-h-screen bg-gradient-to-br from-gray-100 to-white p-6">
     <div class="w-full bg-white rounded-lg shadow p-6 space-y-12">
 
-        <!-- Invoice Approvals Table -->
-        <div>
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">🧾 Invoice Approvals</h2>
-            <table class="w-full border border-gray-300 text-sm text-left">
-                <thead class="bg-gray-100 text-gray-700 font-semibold">
-                    <tr>
-                        <th class="px-4 py-2 border">Quote No</th>
-                        <th class="px-4 py-2 border">Quote Date</th>
-                        <th class="px-4 py-2 border">Client</th>
-                        <th class="px-4 py-2 border">Customer PO No</th>
-                        <th class="px-4 py-2 border">PO Date</th>
-                        <th class="px-4 py-2 border text-center">View</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for est in estimations %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-2 border font-mono">{{ est.quote_no }}</td>
-                        <td class="px-4 py-2 border">{{ est.quote_date }}</td>
-                        <td class="px-4 py-2 border">{{ est.company_name }}</td>
-                        <td class="px-4 py-2 border">{{ est.po_number }}</td>
-                        <td class="px-4 py-2 border">{{ est.po_date }}</td>
-                        <td class="px-4 py-2 border text-center">
-                            <a
-                                href="{% url 'estimation_detail' est.pk %}"
-                                class="inline-flex items-center gap-2 px-3 py-1.5
-                                    bg-blue-600 hover:bg-blue-700
-                                    text-white text-sm font-medium
-                                    rounded-md shadow-sm
-                                    transition-all duration-150">
-
-                                <!-- Gear + Check Icon -->
-                                <svg xmlns="http://www.w3.org/2000/svg"
-                                    class="h-4 w-4"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="3"/>
-                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06
-                                            a2 2 0 0 1-2.83 2.83l-.06-.06
-                                            a1.65 1.65 0 0 0-1.82-.33
-                                            a1.65 1.65 0 0 0-1 1.51V21
-                                            a2 2 0 0 1-4 0v-.09
-                                            a1.65 1.65 0 0 0-1-1.51
-                                            a1.65 1.65 0 0 0-1.82.33l-.06.06
-                                            a2 2 0 0 1-2.83-2.83l.06-.06
-                                            a1.65 1.65 0 0 0 .33-1.82
-                                            a1.65 1.65 0 0 0-1.51-1H3
-                                            a2 2 0 0 1 0-4h.09
-                                            a1.65 1.65 0 0 0 1.51-1
-                                            a1.65 1.65 0 0 0-.33-1.82l-.06-.06
-                                            a2 2 0 0 1 2.83-2.83l.06.06
-                                            a1.65 1.65 0 0 0 1.82.33H9
-                                            a1.65 1.65 0 0 0 1-1.51V3
-                                            a2 2 0 0 1 4 0v.09
-                                            a1.65 1.65 0 0 0 1 1.51
-                                            a1.65 1.65 0 0 0 1.82-.33l.06-.06
-                                            a2 2 0 0 1 2.83 2.83l-.06.06
-                                            a1.65 1.65 0 0 0-.33 1.82V9
-                                            a1.65 1.65 0 0 0 1.51 1H21
-                                            a2 2 0 0 1 0 4h-.09
-                                            a1.65 1.65 0 0 0-1.51 1z"/>
-                                    <path d="M9 12l2 2 4-4"/>
-                                </svg>
-
-                                Action
-                            </a>
-                        </td>
-
-                            </div>
-                        </td>
-                        {% empty %}
-                            <tr>
-                        <td colspan="7" class="px-4 py-4 text-center text-gray-500 italic">No approved quotations found.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
     <!-- Invoice Summary Bar -->
     <div class="grid grid-cols-5 gap-4 mb-4">
 
@@ -169,7 +86,7 @@
         <table id="invoiceTable" class="w-full border border-gray-300 text-sm text-left">
             <thead class="bg-gray-100 text-gray-700 font-semibold">
                 <tr>
-                    <th onclick="sortTable(0)" class="cursor-pointer px-4 py-2 border text-center">Date</th>
+                    <th onclick="sortTable(0)" class="cursor-pointer px-4 py-2 border text-center">Invoice Date</th>
                     <th onclick="sortTable(1)" class="cursor-pointer px-4 py-2 border text-center">Invoice No</th>
                     <th onclick="sortTable(2)" class="cursor-pointer px-4 py-2 border text-center">Estimation No</th>
                     <th onclick="sortTable(3)" class="cursor-pointer px-4 py-2 border text-center">PO</th>
@@ -189,7 +106,7 @@
                         {{ invoice.created_at|date:"d-m-Y" }}
                     </td>
 
-                    <td class="px-4 py-2 border font-mono text-blue-600 underline">
+                    <td class="px-4 py-2 border text-center font-mono text-blue-600 underline">
                         <a id="invoice-no-{{ invoice.id }}"
                         href="{% url 'invoice_pdf' invoice.id %}"
                         target="_blank">
@@ -202,7 +119,18 @@
                     </td>
 
                     <td class="px-4 py-2 border text-center">
-                        {{ invoice.estimation.po_number|default:"-" }}
+                        {% if invoice.estimation.po_attachment %}
+                            <a href="{{ invoice.estimation.po_attachment.url }}"
+                            target="_blank"
+                            class="text-blue-600 underline font-semibold hover:text-blue-800"
+                            title="View PO">
+                                {{ invoice.estimation.po_number }}
+                            </a>
+                        {% else %}
+                            <span class="text-gray-400 italic">
+                                {{ invoice.estimation.po_number|default:"—" }}
+                            </span>
+                        {% endif %}
                     </td>
 
                     <td class="px-4 py-2 border">
@@ -264,25 +192,8 @@
             {% endfor %}
             </tbody>
         </table>
-                <script>
-                    function filterInvoicesTable() {
-                        const input = document.getElementById("invoiceSearch");
-                        const filter = input.value.toLowerCase();
-                        const rows = document.querySelectorAll("table tbody tr");
-
-                        rows.forEach(row => {
-                            const text = row.innerText.toLowerCase();
-                            if (text.includes(filter)) {
-                                row.style.display = "";
-                            } else {
-                                row.style.display = "none";
-                            }
-                        });
-                    }
-                </script>
-            </tbody>
-        </table>
     </div>
+   
 
         <!-- Payment Logs Modal -->
         <div id="paymentLogsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -323,6 +234,22 @@
         </div>
 
         <!-- JS -->
+          <script>
+                    function filterInvoicesTable() {
+                        const input = document.getElementById("invoiceSearch");
+                        const filter = input.value.toLowerCase();
+                        const rows = document.querySelectorAll("table tbody tr");
+
+                        rows.forEach(row => {
+                            const text = row.innerText.toLowerCase();
+                            if (text.includes(filter)) {
+                                row.style.display = "";
+                            } else {
+                                row.style.display = "none";
+                            }
+                        });
+                    }
+                </script>
         <script>
             function openPaymentModal(invoiceId) {
                 document.getElementById('invoiceIdField').value = invoiceId;
