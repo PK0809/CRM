@@ -5,7 +5,7 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
 from django.views.static import serve
-from crm.views import invoices_view
+from crm.views import invoice_list_view
 
 from importlib import import_module
 _crm_views = import_module('crm.views')
@@ -80,7 +80,6 @@ urlpatterns = [
 
     
     # Invoices
-    path("invoices/", views.invoices_view, name="invoices"),
     path("invoices/", invoice_list_view, name="invoices"),
     path('invoice/generate/<int:pk>/', views.generate_invoice_from_estimation, name='generate_invoice'),
     path('invoice/create/', views.create_invoice, name='create_invoice'),
