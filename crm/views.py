@@ -1801,17 +1801,18 @@ def mark_under_review(request, pk):
 def invoices_view(request):
     estimations_without_invoice = (
         Estimation.objects
-        .filter(invoices__isnull=True)   # ✅ CORRECT
+        .filter(invoices__isnull=True)
         .exclude(status="Rejected")
     )
 
     return render(
         request,
-        "crm/invoices.html",
+        "crm/invoice_approval_list.html",
         {
             "estimations_without_invoice": estimations_without_invoice
         }
     )
+
 
 
 from pathlib import Path
