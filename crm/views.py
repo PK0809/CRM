@@ -2123,12 +2123,16 @@ def invoice_list_view(request):
             start_date = date(today.year - 1, 4, 1)
             end_date = date(today.year, 3, 31)
 
-    elif filter_type == "custom":
-        start_date = request.GET.get("start_date")
-        end_date = request.GET.get("end_date")
+    from datetime import datetime
 
-    if start_date and end_date:
-        invoices = invoices.filter(created_at__date__range=[start_date, end_date])
+    elif filter_type == "custom":
+        start = request.GET.get("start_date")
+        end = request.GET.get("end_date")
+    
+        if start and end:
+            start_date = datetime.strptime(start, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end, "%Y-%m-%d").date()
+
 
     invoices = invoices.order_by("-created_at")
 
