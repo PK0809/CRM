@@ -1916,8 +1916,12 @@ def view_payment_logs(request, invoice_id):
 
 from datetime import date
 from django.db.models import Sum
+from django.shortcuts import render
 from django.http import HttpResponse
 import openpyxl
+
+from crm.models import Invoice, PaymentLog
+
 
 def invoice_list_view(request):
     invoices = Invoice.objects.all()
@@ -1949,24 +1953,22 @@ def invoice_list_view(request):
 
     invoices = invoices.order_by("-created_at")
 
-from django.db.models import Sum
-from crm.models import PaymentLog
-
+    # ---- Summary Calculations ----
     total_summary = invoices.aggregate(
         total_amount=Sum("total_value"),
         balance_amount=Sum("balance_due"),
     )
-    
+
     paid_summary = PaymentLog.objects.filter(
         invoice__in=invoices
     ).aggregate(
         paid_amount=Sum("amount_paid")
     )
-    
+
     gst_summary = invoices.aggregate(
         gst_collected=Sum("estimation__gst_amount")
     )
-    
+
     context = {
         "invoices": invoices,
         "summary": {
@@ -1980,12 +1982,10 @@ from crm.models import PaymentLog
         "start_date": start_date,
         "end_date": end_date,
     }
-    
+
     return render(request, "crm/invoice_approval_list.html", context)
 
 
-
-# crm/views.py
 import openpyxl
 from django.http import HttpResponse
 from datetime import date
