@@ -91,6 +91,10 @@ urlpatterns = [
     path('invoices/reject/<int:pk>/', views.reject_invoice, name='reject_invoice'),
     path('api/invoice/<int:invoice_id>/logs/', views.get_payment_logs, name='invoice_logs'),
     path('confirm-payment/<int:invoice_id>/', views.confirm_payment_post, name='confirm_payment'),
+    path("invoice/<int:invoice_id>/edit/", views.edit_invoice, name="edit_invoice"),
+    path("invoices/export/", views.export_invoice_summary, name="export_invoice_summary"),
+    path("invoices/export-gst/", views.export_gst_excel, name="export_gst_excel"),
+
 
     # Reports
     path('reports/', report_list, name='report_list'),
