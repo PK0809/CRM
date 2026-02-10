@@ -2096,11 +2096,12 @@ def view_payment_logs(request, invoice_id):
     logs = PaymentLog.objects.filter(invoice=invoice).order_by('-payment_date')
     return render(request, 'payment_logs.html', {'invoice': invoice, 'logs': logs})
 
-from datetime import date
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
+
 from django.shortcuts import render
 from django.db.models import Sum
+
 from .models import Invoice, PaymentLog
 
 
@@ -2123,16 +2124,19 @@ def invoice_list_view(request):
             start_date = date(today.year - 1, 4, 1)
             end_date = date(today.year, 3, 31)
 
-    from datetime import datetime
-
     elif filter_type == "custom":
         start = request.GET.get("start_date")
         end = request.GET.get("end_date")
-    
+
         if start and end:
             start_date = datetime.strptime(start, "%Y-%m-%d").date()
             end_date = datetime.strptime(end, "%Y-%m-%d").date()
 
+    # ✅ Apply date filter ONLY if dates exist
+    if start_date and end_date:
+        invoices = invoices.filter(
+            created_at__date__range=(start_date, end_date)
+        )
 
     invoices = invoices.order_by("-created_at")
 
@@ -2141,11 +2145,11 @@ def invoice_list_view(request):
         balance_amount=Sum("balance_due"),
     )
 
-    paid_amount = PaymentLog.objects.filter(
-        invoice__in=invoices
-    ).aggregate(
-        total=Sum("amount_paid")
-    )["total"] or Decimal("0.00")
+    paid_amount = (
+        PaymentLog.objects.filter(invoice__in=invoices)
+        .aggregate(total=Sum("amount_paid"))["total"]
+        or Decimal("0.00")
+    )
 
     gst_summary = invoices.aggregate(
         gst_collected=Sum("estimation__gst_amount")
@@ -2166,6 +2170,7 @@ def invoice_list_view(request):
     }
 
     return render(request, "crm/invoice_approval_list.html", context)
+
 
 
 # crm/views.py
