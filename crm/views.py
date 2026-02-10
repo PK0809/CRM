@@ -1751,14 +1751,78 @@ def generate_invoice_from_estimation(request, pk):
     # ✅ GO TO GENERATED INVOICES TABLE
     return redirect("invoice_list")
 
-def invoice_list(request):
-    invoices = Invoice.objects.filter(is_approved=True).order_by("-created_at")
+from datetime import date, datetime
+from decimal import Decimal
+from django.db.models import Sum
+from django.shortcuts import render
 
-    return render(
-        request,
-        "crm/invoice_list.html",
-        {"invoices": invoices}
+from .models import Invoice, PaymentLog
+
+
+def invoice_list(request):
+    invoices = Invoice.objects.filter(is_approved=True)
+
+    filter_type = request.GET.get("range", "month")
+    start_date = end_date = None
+    today = date.today()
+
+    if filter_type == "month":
+        start_date = today.replace(day=1)
+        end_date = today
+
+    elif filter_type == "fy":
+        if today.month >= 4:
+            start_date = date(today.year, 4, 1)
+            end_date = date(today.year + 1, 3, 31)
+        else:
+            start_date = date(today.year - 1, 4, 1)
+            end_date = date(today.year, 3, 31)
+
+    elif filter_type == "custom":
+        start = request.GET.get("start_date")
+        end = request.GET.get("end_date")
+        try:
+            if start and end:
+                start_date = datetime.strptime(start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(end, "%Y-%m-%d").date()
+        except ValueError:
+            start_date = end_date = None
+
+    if start_date and end_date:
+        invoices = invoices.filter(
+            created_at__date__range=(start_date, end_date)
+        )
+
+    invoices = invoices.order_by("-created_at")
+
+    summary = invoices.aggregate(
+        total_amount=Sum("total_value"),
+        balance_amount=Sum("balance_due"),
+        gst_collected=Sum("estimation__gst_amount"),
     )
+
+    paid_amount = (
+        PaymentLog.objects
+        .filter(invoice__in=invoices)
+        .aggregate(total=Sum("amount_paid"))["total"]
+        or Decimal("0.00")
+    )
+
+    context = {
+        "invoices": invoices,
+        "filter_type": filter_type,
+        "start_date": start_date,
+        "end_date": end_date,
+        "summary": {
+            "count": invoices.count(),
+            "total": summary["total_amount"] or Decimal("0.00"),
+            "paid": paid_amount,
+            "balance": summary["balance_amount"] or Decimal("0.00"),
+            "gst": summary["gst_collected"] or Decimal("0.00"),
+        },
+    }
+
+    return render(request, "crm/invoice_approval_list.html", context)
 
 
 from decimal import Decimal
