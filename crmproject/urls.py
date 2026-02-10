@@ -79,8 +79,7 @@ urlpatterns = [
 
     
     # Invoices
-    path("invoices/", views.invoice_approval_list, name="invoice_list"),
-    path("invoices/", views.invoice_list, name="invoice_list"),
+    path('invoices/', views.invoice_list_view, name='invoice_list'),
     path('invoice/view/<int:pk>/', views.invoice_detail_view, name='invoice_detail'),
     path('invoice/generate/<int:pk>/', views.generate_invoice_from_estimation, name='generate_invoice'),
     path('invoice/create/', views.create_invoice, name='create_invoice'),
