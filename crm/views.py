@@ -1593,13 +1593,15 @@ def reject_estimation(request, pk):
     estimation.save()
     return redirect("estimation")
 
-def invoice_approval_table(request):
-    Estimation.objects.filter(
+def invoice_approval_list(request):
+    estimations = Estimation.objects.filter(
         status="Approved",
-        invoices__isnull=True
-    )
+        invoice__isnull=True   # adjust if related_name differs
+    ).order_by("-created_at")
 
-    invoices = Invoice.objects.all().order_by("-created_at")
+    invoices = Invoice.objects.filter(
+        is_approved=True
+    ).order_by("-created_at")
 
     return render(
         request,
@@ -1609,6 +1611,7 @@ def invoice_approval_table(request):
             "invoices": invoices,
         }
     )
+
 
 
 
@@ -1749,15 +1752,14 @@ def generate_invoice_from_estimation(request, pk):
     return redirect("invoice_list")
 
 def invoice_list(request):
-    invoices = Invoice.objects.filter(
-        is_approved=True
-    ).order_by("-created_at")
+    invoices = Invoice.objects.filter(is_approved=True).order_by("-created_at")
 
     return render(
         request,
         "crm/invoice_list.html",
         {"invoices": invoices}
     )
+
 
 from decimal import Decimal
 
