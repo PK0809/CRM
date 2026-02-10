@@ -6,42 +6,45 @@
     <div class="w-full bg-white rounded-lg shadow p-6 space-y-12">
 
     <!-- Invoice Summary Bar -->
+    {% if summary %}
     <div class="grid grid-cols-5 gap-4 mb-4">
-
+    
         <div class="bg-white border rounded p-4">
             <p class="text-sm text-gray-500">Invoices</p>
-            <p class="text-2xl font-bold">{{ summary.count }}</p>
+            <p class="text-2xl font-bold">{{ summary.count|default:0 }}</p>
         </div>
-
+    
         <div class="bg-blue-50 border rounded p-4">
             <p class="text-sm text-blue-700">Total Amount</p>
             <p class="text-2xl font-bold text-blue-800">
-                ₹ {{ summary.total|floatformat:2 }}
+                ₹ {{ summary.total|default:0|floatformat:2 }}
             </p>
         </div>
-
+    
         <div class="bg-emerald-50 border rounded p-4">
             <p class="text-sm text-emerald-700">Paid Amount</p>
             <p class="text-2xl font-bold">
-                ₹ {{ summary.paid }}
+                ₹ {{ summary.paid|default:0 }}
             </p>
         </div>
-
+    
         <div class="bg-red-50 border rounded p-4">
             <p class="text-sm text-red-700">Balance Due</p>
             <p class="text-2xl font-bold text-red-800">
-                ₹ {{ summary.balance|floatformat:2 }}
+                ₹ {{ summary.balance|default:0|floatformat:2 }}
             </p>
         </div>
-
+    
         <div class="bg-purple-50 border rounded p-4">
             <p class="text-sm text-purple-700">GST Collected</p>
             <p class="text-2xl font-bold text-purple-800">
-                ₹ {{ summary.gst|floatformat:2 }}
+                ₹ {{ summary.gst|default:0|floatformat:2 }}
             </p>
         </div>
-
+    
     </div>
+    {% endif %}
+
         <!-- Generated Invoices Table -->
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-2xl font-bold text-gray-800">📄 Generated Invoices</h2>
@@ -64,9 +67,9 @@
             </select>
 
             {% if filter_type == 'custom' %}
-            <input type="date" name="start_date" value="{{ start_date }}"
+            <input type="date" name="start_date" value="{{ start_date|default:'' }}"
                 class="border rounded px-3 py-2 text-sm">
-            <input type="date" name="end_date" value="{{ end_date }}"
+            <input type="date" name="end_date" value="{{ end_date|default:'' }}"
                 class="border rounded px-3 py-2 text-sm">
             <button class="bg-blue-600 text-white px-4 py-2 rounded text-sm">
                 Apply
