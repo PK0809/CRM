@@ -1521,11 +1521,12 @@ def estimation_list(request):
         "today": today,
     })
 
-from django.shortcuts import get_object_or_404, redirect, render
-from django.contrib import messages
-from django.views.decorators.http import require_http_methods
-from .models import Estimation, Invoice
-from .utils import generate_invoice_number
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+
+from .models import Estimation, Invoice, EstimationItem
+from .utils import inr_currency_words
 
 
 @require_http_methods(["GET", "POST"])
@@ -1593,10 +1594,10 @@ def reject_estimation(request, pk):
     return redirect("estimation")
 
 def invoice_approval_table(request):
-    estimations = Estimation.objects.filter(
+    Estimation.objects.filter(
         status="Approved",
-        invoices__isnull=True   # ✅ FIXED
-    ).order_by("-created_at")
+        invoices__isnull=True
+    )
 
     invoices = Invoice.objects.all().order_by("-created_at")
 
@@ -1660,10 +1661,6 @@ def update_estimation_status(request, pk, new_status):
     estimation.save()
     return redirect("invoice_approval_list")
 
-def generate_invoice_number():
-    last = Invoice.objects.order_by('-id').first()
-    number = int(last.invoice_no.split('-')[-1]) + 1 if last else 1
-    return f"INV-{number:04d}"
 
 def invoice_detail_view(request, pk):
     estimation = get_object_or_404(Estimation, pk=pk)
