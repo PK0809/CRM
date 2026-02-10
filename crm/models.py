@@ -223,7 +223,7 @@ def generate_estimation_no():
 
 
 class EstimationItem(models.Model):
-    estimation = models.ForeignKey(Estimation, on_delete=models.CASCADE, related_name='items')
+    estimation = models.ForeignKey(Estimation, on_delete=models.CASCADE)
     item_details = models.TextField()
     hsn_sac = models.CharField(max_length=20, blank=True, null=True)
     quantity = models.PositiveIntegerField()
