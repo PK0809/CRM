@@ -1521,12 +1521,11 @@ def estimation_list(request):
         "today": today,
     })
 
-from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-
-from .models import Estimation, Invoice, EstimationItem
-from .utils import inr_currency_words
+from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib import messages
+from django.views.decorators.http import require_http_methods
+from .models import Estimation, Invoice
+from .utils import generate_invoice_number
 
 
 @require_http_methods(["GET", "POST"])
@@ -1593,15 +1592,13 @@ def reject_estimation(request, pk):
     estimation.save()
     return redirect("estimation")
 
-def invoice_approval_list(request):
+def invoice_approval_table(request):
     estimations = Estimation.objects.filter(
         status="Approved",
-        invoice__isnull=True   # adjust if related_name differs
+        invoices__isnull=True   # ✅ FIXED
     ).order_by("-created_at")
 
-    invoices = Invoice.objects.filter(
-        is_approved=True
-    ).order_by("-created_at")
+    invoices = Invoice.objects.all().order_by("-created_at")
 
     return render(
         request,
@@ -1611,7 +1608,6 @@ def invoice_approval_list(request):
             "invoices": invoices,
         }
     )
-
 
 
 
@@ -1664,6 +1660,10 @@ def update_estimation_status(request, pk, new_status):
     estimation.save()
     return redirect("invoice_approval_list")
 
+def generate_invoice_number():
+    last = Invoice.objects.order_by('-id').first()
+    number = int(last.invoice_no.split('-')[-1]) + 1 if last else 1
+    return f"INV-{number:04d}"
 
 def invoice_detail_view(request, pk):
     estimation = get_object_or_404(Estimation, pk=pk)
@@ -1751,79 +1751,16 @@ def generate_invoice_from_estimation(request, pk):
     # ✅ GO TO GENERATED INVOICES TABLE
     return redirect("invoice_list")
 
-from datetime import date, datetime
-from decimal import Decimal
-from django.db.models import Sum
-from django.shortcuts import render
-
-from .models import Invoice, PaymentLog
-
-
 def invoice_list(request):
-    invoices = Invoice.objects.filter(is_approved=True)
+    invoices = Invoice.objects.filter(
+        is_approved=True
+    ).order_by("-created_at")
 
-    filter_type = request.GET.get("range", "month")
-    start_date = end_date = None
-    today = date.today()
-
-    if filter_type == "month":
-        start_date = today.replace(day=1)
-        end_date = today
-
-    elif filter_type == "fy":
-        if today.month >= 4:
-            start_date = date(today.year, 4, 1)
-            end_date = date(today.year + 1, 3, 31)
-        else:
-            start_date = date(today.year - 1, 4, 1)
-            end_date = date(today.year, 3, 31)
-
-    elif filter_type == "custom":
-        start = request.GET.get("start_date")
-        end = request.GET.get("end_date")
-        try:
-            if start and end:
-                start_date = datetime.strptime(start, "%Y-%m-%d").date()
-                end_date = datetime.strptime(end, "%Y-%m-%d").date()
-        except ValueError:
-            start_date = end_date = None
-
-    if start_date and end_date:
-        invoices = invoices.filter(
-            created_at__date__range=(start_date, end_date)
-        )
-
-    invoices = invoices.order_by("-created_at")
-
-    summary = invoices.aggregate(
-        total_amount=Sum("total_value"),
-        balance_amount=Sum("balance_due"),
-        gst_collected=Sum("estimation__gst_amount"),
+    return render(
+        request,
+        "crm/invoice_list.html",
+        {"invoices": invoices}
     )
-
-    paid_amount = (
-        PaymentLog.objects
-        .filter(invoice__in=invoices)
-        .aggregate(total=Sum("amount_paid"))["total"]
-        or Decimal("0.00")
-    )
-
-    context = {
-        "invoices": invoices,
-        "filter_type": filter_type,
-        "start_date": start_date,
-        "end_date": end_date,
-        "summary": {
-            "count": invoices.count(),
-            "total": summary["total_amount"] or Decimal("0.00"),
-            "paid": paid_amount,
-            "balance": summary["balance_amount"] or Decimal("0.00"),
-            "gst": summary["gst_collected"] or Decimal("0.00"),
-        },
-    }
-
-    return render(request, "crm/invoice_approval_list.html", context)
-
 
 from decimal import Decimal
 
@@ -1864,7 +1801,7 @@ def mark_under_review(request, pk):
 def invoices_view(request):
     estimations_without_invoice = (
         Estimation.objects
-        .filter(invoices__isnull=True)
+        .filter(invoices__isnull=True)   # ✅ CORRECT
         .exclude(status="Rejected")
     )
 
@@ -1875,7 +1812,6 @@ def invoices_view(request):
             "estimations_without_invoice": estimations_without_invoice
         }
     )
-
 
 
 from pathlib import Path
@@ -2159,20 +2095,18 @@ def view_payment_logs(request, invoice_id):
     logs = PaymentLog.objects.filter(invoice=invoice).order_by('-payment_date')
     return render(request, 'payment_logs.html', {'invoice': invoice, 'logs': logs})
 
-from datetime import date, datetime
-from decimal import Decimal
-
-from django.shortcuts import render
+from datetime import date
 from django.db.models import Sum
-
-from .models import Invoice, PaymentLog
-
+from django.http import HttpResponse
+import openpyxl
 
 def invoice_list_view(request):
     invoices = Invoice.objects.all()
 
+    # ---- Date Filters ----
     filter_type = request.GET.get("range", "month")
     start_date = end_date = None
+
     today = date.today()
 
     if filter_type == "month":
@@ -2188,31 +2122,28 @@ def invoice_list_view(request):
             end_date = date(today.year, 3, 31)
 
     elif filter_type == "custom":
-        start = request.GET.get("start_date")
-        end = request.GET.get("end_date")
+        start_date = request.GET.get("start_date")
+        end_date = request.GET.get("end_date")
 
-        if start and end:
-            start_date = datetime.strptime(start, "%Y-%m-%d").date()
-            end_date = datetime.strptime(end, "%Y-%m-%d").date()
-
-    # ✅ Apply date filter ONLY if dates exist
     if start_date and end_date:
-        invoices = invoices.filter(
-            created_at__date__range=(start_date, end_date)
-        )
+        invoices = invoices.filter(created_at__date__range=[start_date, end_date])
 
     invoices = invoices.order_by("-created_at")
+
+    from django.db.models import Sum
+    from .models import PaymentLog
 
     summary = invoices.aggregate(
         total_amount=Sum("total_value"),
         balance_amount=Sum("balance_due"),
     )
 
-    paid_amount = (
-        PaymentLog.objects.filter(invoice__in=invoices)
-        .aggregate(total=Sum("amount_paid"))["total"]
-        or Decimal("0.00")
-    )
+    # ✅ Paid Amount = ALL money received (NO STATUS FILTER)
+    paid_amount = PaymentLog.objects.filter(
+        invoice__in=invoices
+    ).aggregate(
+        total=Sum("amount_paid")
+    )["total"] or 0
 
     gst_summary = invoices.aggregate(
         gst_collected=Sum("estimation__gst_amount")
@@ -2222,10 +2153,10 @@ def invoice_list_view(request):
         "invoices": invoices,
         "summary": {
             "count": invoices.count(),
-            "total": summary["total_amount"] or Decimal("0.00"),
-            "paid": paid_amount,
-            "balance": summary["balance_amount"] or Decimal("0.00"),
-            "gst": gst_summary["gst_collected"] or Decimal("0.00"),
+            "total": summary["total_amount"] or 0,
+            "paid": paid_amount,                      # ✅ FIXED
+            "balance": summary["balance_amount"] or 0,
+            "gst": gst_summary["gst_collected"] or 0,
         },
         "filter_type": filter_type,
         "start_date": start_date,
@@ -2233,7 +2164,6 @@ def invoice_list_view(request):
     }
 
     return render(request, "crm/invoice_approval_list.html", context)
-
 
 
 # crm/views.py
