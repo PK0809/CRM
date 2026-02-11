@@ -1016,8 +1016,6 @@ from django.db import transaction
 from django.db.models import F
 from django.utils.timezone import now
 from django.shortcuts import render, redirect, get_object_or_404
-
-from decimal import Decimal, InvalidOperation
 import re
 
 from .models import (
@@ -1025,55 +1023,73 @@ from .models import (
     TermsAndConditions, GSTSettings, EstimationSettings
 )
 
-# Plain-text defaults (one item per line, no bullets here)
+# =====================================================
+# DEFAULT TERMS (one per line)
+# =====================================================
 DEFAULT_TERMS = """Payment Terms: 100% Advance Payment or As Per Agreed Terms
 Service Warranty 30 to 90 Days Depending upon the Availed Service
 All Products and Accessories Carries Standard OEM Warranty"""
 
+# =====================================================
+# SAFE DECIMAL
+# =====================================================
 def safe_decimal(value, default='0.00'):
     try:
         return Decimal(value)
     except (InvalidOperation, TypeError, ValueError):
         return Decimal(default)
 
-_BULLET_PREFIX = re.compile(r'^\s*[-•]\s*')  # strip leading '-' or '•'
+# =====================================================
+# SPLIT + CLEAN TERMS
+# =====================================================
+_BULLET_PREFIX = re.compile(r'^\s*[-•]\s*')
 
 def _split_lines(text: str):
     """
-    Split on newlines, strip whitespace, drop empties, and remove leading bullets.
+    Split text into clean individual lines.
+    Removes bullets and empty lines.
     """
     lines = []
     for raw in (text or "").replace("\r\n", "\n").split("\n"):
-        ln = _BULLET_PREFIX.sub("", raw.strip())
-        if ln:
-            lines.append(ln)
+        clean = _BULLET_PREFIX.sub("", raw.strip())
+        if clean:
+            lines.append(clean)
     return lines
 
-def merge_terms_to_html(default_terms_text: str, user_terms_text: str) -> str:
+# =====================================================
+# MERGE + NUMBER TERMS PROPERLY
+# =====================================================
+def merge_terms_to_html(default_terms_text, user_terms_text):
     """
-    Merge default and user-entered terms into a single HTML <ul> list, de-duplicated,
-    left-aligned with consistent indentation and tight line spacing.
-    The resulting HTML is safe to render with |safe in templates and PDFs.
-    """
-    base = _split_lines(default_terms_text)
-    extra = _split_lines(user_terms_text)
+    Merge default and user terms,
+    remove duplicates,
+    and render as:
 
+    1) Term
+    2) Term
+    3) Term
+    """
+
+    default_lines = _split_lines(default_terms_text)
+    user_lines = _split_lines(user_terms_text)
+
+    # Remove duplicates (case insensitive)
     seen = set()
     merged = []
-    for ln in base + extra:
-        key = ln.lower()
+
+    for line in default_lines + user_lines:
+        key = line.lower()
         if key not in seen:
             seen.add(key)
-            merged.append(ln)
+            merged.append(line)
 
-    # Tailwind-friendly and PDF-safe left alignment + spacing
-    # If you do not use Tailwind, these inline styles still align correctly.
-    return (
-        '<ul class="list-disc ml-5 leading-snug text-left" '
-        'style="list-style:disc; margin:0 0 0 1.25rem; padding:0; line-height:1.35; text-align:left;">'
-        + "".join(f"<li style='margin:0.2rem 0;'>{ln}</li>" for ln in merged)
-        + "</ul>"
+    # Generate numbered output (PDF-safe)
+    return "".join(
+        f"<div style='margin-bottom:4px;'>{i+1}) {line}</div>"
+        for i, line in enumerate(merged)
     )
+
+
 
 @transaction.atomic
 def generate_and_reserve_quote_no():
@@ -1208,25 +1224,19 @@ class QuotationPDFView(View):
     def get(self, request, pk):
         estimation = get_object_or_404(Estimation, pk=pk)
 
-        # Items
         items = estimation.items.all()
 
         sub_total = estimation.sub_total or Decimal("0")
         discount = estimation.discount or Decimal("0")
         taxable_value = sub_total - discount
 
-        # GST
         gst_rate = Decimal("18")
         gst_amount = (taxable_value * gst_rate) / Decimal("100")
 
         customer_gst = (estimation.gst_no or "").strip()
         OUR_GST_STATE = getattr(settings, "GST_STATE_CODE", "29")
 
-        if not customer_gst:
-            # ✅ GSTIN missing → CGST + SGST
-            same_state = True
-        else:
-            same_state = customer_gst[:2] == OUR_GST_STATE
+        same_state = not customer_gst or customer_gst[:2] == OUR_GST_STATE
 
         if same_state:
             cgst = sgst = gst_amount / 2
@@ -1241,17 +1251,44 @@ class QuotationPDFView(View):
 
         total = taxable_value + gst_amount
 
-        # Terms & expiry
-        terms_obj = TermsAndConditions.objects.order_by("-id").first()
-        terms = terms_obj.content if terms_obj else (estimation.terms_conditions or "")
-        expiry_date = estimation.quote_date + timedelta(days=estimation.validity_days or 0)
+        expiry_date = estimation.quote_date + timedelta(
+            days=estimation.validity_days or 0
+        )
 
         amount_in_words = inr_currency_words(total)
 
-        # ✅ ABSOLUTE STATIC URL (THIS FIXES PROD)
+        # =========================================
+        # 🔥 CONVERT UL/LI TERMS TO NUMBERED FORMAT
+        # =========================================
+        from bs4 import BeautifulSoup
+        import re
+
+        raw_terms = estimation.terms_conditions or ""
+
+        # 1️⃣ Convert any HTML to plain text
+        soup = BeautifulSoup(raw_terms, "html.parser")
+        plain_text = soup.get_text("\n")  # force newline separation
+
+        # 2️⃣ Remove ALL numbering patterns like:
+        # "1)", "2)", "10)" anywhere in text
+        plain_text = re.sub(r'\b\d+\)\s*', '', plain_text)
+
+        # 3️⃣ Split properly on newline
+        lines = plain_text.replace("\r\n", "\n").split("\n")
+
+        # 4️⃣ Clean empty lines
+        cleaned_terms = [line.strip() for line in lines if line.strip()]
+
+        # 5️⃣ Generate fresh numbering
+        numbered_terms = "".join(
+            f"<div style='margin-bottom:4px;'>{i+1}) {text}</div>"
+            for i, text in enumerate(cleaned_terms)
+        )
+
+
+        # Logo
         logo_path = Path(settings.STATIC_ROOT) / "images/logo.png"
         logo_uri = logo_path.as_uri()
-      
 
         context = {
             "estimation": estimation,
@@ -1268,7 +1305,7 @@ class QuotationPDFView(View):
             "cgst_rate": cgst_rate,
             "sgst_rate": sgst_rate,
             "igst_rate": igst_rate,
-            "terms": terms,
+            "terms": numbered_terms,   # 🔥 IMPORTANT
             "expiry_date": expiry_date,
             "amount_in_words": amount_in_words,
             "logo_uri": logo_uri,
@@ -1281,14 +1318,16 @@ class QuotationPDFView(View):
 
         pdf = HTML(
             string=html_string,
-            base_url=request.build_absolute_uri("/")  # ✅ REQUIRED
+            base_url=request.build_absolute_uri("/")
         ).write_pdf()
 
         response = HttpResponse(pdf, content_type="application/pdf")
         response["Content-Disposition"] = (
             f'inline; filename="Quotation_{estimation.quote_no}.pdf"'
         )
+
         return response
+
 
     
 import logging
@@ -1419,7 +1458,7 @@ def edit_estimation(request, pk):
                     'clients': clients,
                     'items': items,
                     'all_leads': all_leads,
-                    'terms_plain': terms_plain,
+                    'terms_plain': terms_plain, 
                     'error': "Please fix the highlighted errors.",
                 })
 
@@ -1438,16 +1477,9 @@ def edit_estimation(request, pk):
                 updated.gst_amount = _d(request.POST.get('gst_amount'))
                 updated.total = _d(request.POST.get('total'))
 
-                # 🔹 IMPORTANT: Convert text → HTML before saving
-                user_terms_text = request.POST.get('terms_conditions', '')
+                # 🔹 SAVE PLAIN TEXT ONLY
+                updated.terms_conditions = request.POST.get('terms_conditions', '').strip()
 
-                terms_obj = TermsAndConditions.objects.order_by('-id').first()
-                default_terms_text = terms_obj.content if terms_obj else ""
-
-                updated.terms_conditions = merge_terms_to_html(
-                    default_terms_text,
-                    user_terms_text
-                )
 
                 updated.save()
 
@@ -1814,40 +1846,57 @@ def invoices_view(request):
     )
 
 
-from pathlib import Path
-from decimal import Decimal, ROUND_HALF_UP
-from datetime import timedelta
 
-from django.conf import settings
-from django.http import HttpResponse
+from decimal import Decimal
 from django.shortcuts import get_object_or_404
+from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
-
-from num2words import num2words
 from weasyprint import HTML
-
-from .models import Invoice
+from datetime import timedelta
+from pathlib import Path
+from django.conf import settings
+from num2words import num2words
+import re
 
 
 def invoice_pdf_view(request, invoice_id):
     invoice = get_object_or_404(Invoice, pk=invoice_id)
-    invoice.refresh_from_db()  # 🔴 always load latest saved data
+    invoice.refresh_from_db()
 
     estimation = invoice.estimation
     items = estimation.items.all()
 
     # =========================
-    # DATES
+    # DUE DATE
     # =========================
     due_date = invoice.invoice_date + timedelta(days=invoice.credit_days or 0)
 
+   # =========================
+    # ITEM CALCULATION (CORRECT)
     # =========================
-    # AMOUNTS (SOURCE OF TRUTH)
-    # =========================
-    sub_total = estimation.sub_total or Decimal("0.00")
-    gst_amount = estimation.gst_amount or Decimal("0.00")
-    total = invoice.total_value or Decimal("0.00")
+    sub_total = Decimal("0.00")
+    gst_amount = Decimal("0.00")
+
+    for item in items:
+        qty = Decimal(item.quantity or 0)
+        rate = Decimal(item.rate or 0)
+        tax = Decimal(item.tax or 0)
+
+        base = qty * rate
+        tax_amt = (base * tax) / Decimal("100")
+
+        item.base_amount = base.quantize(Decimal("0.01"))
+        item.tax_amount = tax_amt.quantize(Decimal("0.01"))
+
+        sub_total += base
+        gst_amount += tax_amt
+
+    sub_total = sub_total.quantize(Decimal("0.01"))
+    gst_amount = gst_amount.quantize(Decimal("0.01"))
+    total = (sub_total + gst_amount).quantize(Decimal("0.01"))
+
+
 
     # =========================
     # AMOUNT IN WORDS
@@ -1861,32 +1910,37 @@ def invoice_pdf_view(request, invoice_id):
     amount_in_words += " Only"
 
     # =========================
-    # GST SPLIT (DISPLAY ONLY)
+    # GST SPLIT (DISPLAY)
     # =========================
-    company_gst_state_code = estimation.gst_no[:2] if estimation.gst_no else ""
-    same_state = company_gst_state_code == "29"
+    customer_gst = (estimation.gst_no or "").strip()
+    our_state_code = "29"
+
+    same_state = customer_gst[:2] == our_state_code if customer_gst else True
 
     if same_state:
         cgst = (gst_amount / 2).quantize(Decimal("0.01"))
         sgst = (gst_amount / 2).quantize(Decimal("0.01"))
         igst = Decimal("0.00")
     else:
-        cgst = sgst = Decimal("0.00")
-        igst = gst_amount.quantize(Decimal("0.01"))
+        cgst = Decimal("0.00")
+        sgst = Decimal("0.00")
+        igst = gst_amount
+
 
     # =========================
     # CLEAN TERMS FOR PDF
     # =========================
     raw_terms = estimation.terms_conditions or ""
 
-    terms_pdf = strip_tags(raw_terms)
-    terms_pdf = (
-        terms_pdf
-        .replace("Payment Terms", "\n• Payment Terms")
-        .replace("Service Warranty", "\n• Service Warranty")
-        .replace("All Products and Accessories", "\n• All Products and Accessories")
-        .strip()
-    )
+    # Convert HTML → clean text
+    plain_terms = strip_tags(raw_terms)
+    plain_terms = re.sub(r'^\s*\d+\)\s*', '', plain_terms, flags=re.MULTILINE)
+
+    terms_pdf = [
+        line.strip()
+        for line in plain_terms.split("\n")
+        if line.strip()
+    ]
 
     # =========================
     # LOGO
@@ -1924,7 +1978,9 @@ def invoice_pdf_view(request, invoice_id):
     response = HttpResponse(pdf, content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="{invoice.invoice_no}.pdf"'
     response["Cache-Control"] = "no-store"
+
     return response
+
 
 
 from decimal import Decimal
@@ -1934,14 +1990,14 @@ from django.utils.dateparse import parse_date
 from django.db import transaction
 from django.contrib import messages
 
-from .models import Invoice, Estimation, EstimationItem
+from .models import Invoice, EstimationItem
 
 
 def edit_invoice(request, invoice_id):
     invoice = get_object_or_404(Invoice, pk=invoice_id)
     estimation = invoice.estimation
 
-    # 🔒 Safety: block paid invoices
+    # 🔒 Block paid invoices
     if not invoice.can_edit:
         messages.error(request, "Paid invoices cannot be edited.")
         return redirect("invoice_list")
@@ -1957,7 +2013,6 @@ def edit_invoice(request, invoice_id):
         formset = ItemFormSet(request.POST, queryset=estimation.items.all())
 
         if not formset.is_valid():
-            print("FORMSET ERRORS:", formset.errors)
             messages.error(request, "Please fix item errors.")
             return render(request, "crm/edit_invoice.html", {
                 "invoice": invoice,
@@ -1968,7 +2023,7 @@ def edit_invoice(request, invoice_id):
         with transaction.atomic():
 
             # =========================
-            # 1️⃣ INVOICE HEADER
+            # 1️⃣ Invoice Header
             # =========================
             invoice_date = request.POST.get("invoice_date")
             if invoice_date:
@@ -1978,49 +2033,56 @@ def edit_invoice(request, invoice_id):
             invoice.save(update_fields=["invoice_date", "credit_days"])
 
             # =========================
-            # 2️⃣ ESTIMATION HEADER
+            # 2️⃣ Estimation Header
             # =========================
             estimation.po_number = request.POST.get("po_number")
             estimation.billing_address = request.POST.get("billing_address")
             estimation.shipping_address = request.POST.get("shipping_address")
             estimation.gst_no = request.POST.get("gst_no", "")
-            estimation.terms_conditions = request.POST.get(
-                "terms_conditions", ""
-            )
-
-            print("PO:", estimation.po_number)
-            print("BILL:", estimation.billing_address)
-            print("SHIP:", estimation.shipping_address)
-            print("GST:", estimation.gst_no)
-            print("TERMS:", estimation.terms_conditions)
-
-            estimation.save()   # 🔴 THIS WAS REQUIRED
+            estimation.terms_conditions = request.POST.get("terms_conditions", "")
+            estimation.save()
 
             # =========================
-            # 3️⃣ ITEMS (EDIT / DELETE)
+            # 3️⃣ Items Calculation
             # =========================
             sub_total = Decimal("0.00")
+            gst_total = Decimal("0.00")
 
             items = formset.save(commit=False)
 
-            # delete removed rows
+            # Delete removed items
             for obj in formset.deleted_objects:
                 obj.delete()
 
             for item in items:
                 item.estimation = estimation
-                item.amount = item.quantity * item.rate
+
+                base = item.quantity * item.rate
+                tax_amt = (base * item.tax) / Decimal("100")
+
+                item.amount = base + tax_amt
                 item.save()
-                sub_total += item.amount
+
+                sub_total += base
+                gst_total += tax_amt
+
+            total = sub_total + gst_total
 
             # =========================
-            # 4️⃣ TOTALS
+            # 4️⃣ Prevent Negative Balance
             # =========================
-            gst_amount = (sub_total * Decimal("18")) / Decimal("100")
-            total = sub_total + gst_amount
+            if total < invoice.paid_amount:
+                messages.error(
+                    request,
+                    f"Total cannot be less than Paid Amount (₹{invoice.paid_amount})."
+                )
+                return redirect("edit_invoice", invoice_id=invoice.id)
 
+            # =========================
+            # 5️⃣ Save Totals
+            # =========================
             estimation.sub_total = sub_total
-            estimation.gst_amount = gst_amount
+            estimation.gst_amount = gst_total
             estimation.total = total
             estimation.save(update_fields=["sub_total", "gst_amount", "total"])
 
@@ -2042,6 +2104,20 @@ def edit_invoice(request, invoice_id):
         "formset": formset,
     })
 
+def recalculate_paid_amount(self):
+    from django.db.models import Sum
+    total_paid = self.logs.aggregate(
+        total=Sum("amount_paid")
+    )["total"] or Decimal("0.00")
+
+    self.paid_amount = total_paid
+
+    balance = self.total_value - total_paid
+    if balance < 0:
+        balance = Decimal("0.00")
+
+    self.balance_due = balance
+    self.save(update_fields=["paid_amount", "balance_due"])
 
 
 @require_POST

@@ -248,6 +248,9 @@ class EstimationItem(models.Model):
                 estimation_item=self
             )
         )
+    
+    def taxable_amount(self):
+        return self.quantity * self.rate
 
     def remaining_qty(self):
         return self.quantity - self.delivered_qty()
