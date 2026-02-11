@@ -135,6 +135,7 @@
         </div>
     </div>
 <!-- ================= ITEMS ================= -->
+<!-- ================= ITEMS ================= -->
 <div class="bg-white rounded-lg shadow p-6 mb-6">
     <div class="flex justify-between mb-4">
         <h3 class="text-lg font-semibold">Invoice Items</h3>
@@ -144,67 +145,77 @@
     </div>
 
     <div class="overflow-x-auto">
-    <table class="invoice-table w-full text-sm border border-gray-300">
-        <thead>
-            <tr>
-                <th class="w-10">#</th>
-                <th class="w-[300px] text-left">Description</th>
-                <th class="w-28">HSN / SAC</th>
-                <th class="w-20">Qty</th>
-                <th class="w-24">UOM</th>
-                <th class="w-28">Rate</th>
-                <th class="w-20">Tax %</th>
-                <th class="w-32">Amount</th>
-                <th class="w-16">Del</th>
-            </tr>
-        </thead>
+        <table class="invoice-table w-full text-sm border border-gray-300">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th class="text-left">Description</th>
+                    <th>HSN / SAC</th>
+                    <th>Qty</th>
+                    <th>UOM</th>
+                    <th>Rate</th>
+                    <th>Tax %</th>
+                    <th>Amount</th>
+                    <th>Del</th>
+                </tr>
+            </thead>
 
-        <tbody id="itemsTableBody">
-            {{ formset.management_form }}
+            <tbody id="itemsTableBody">
+                {{ formset.management_form }}
 
-            {% for form in formset %}
-            <tr>
-                {{ form.id }}
+                {% for form in formset %}
+                <tr>
+                    {{ form.id }}
+                    <td>{{ forloop.counter }}</td>
+                    <td class="text-left">{{ form.item_details }}</td>
+                    <td>{{ form.hsn_sac }}</td>
+                    <td>{{ form.quantity }}</td>
+                    <td>{{ form.uom }}</td>
+                    <td>{{ form.rate }}</td>
+                    <td>{{ form.tax }}</td>
+                    <td class="amount text-right">0.00</td>
+                    <td class="text-center">{{ form.DELETE }}</td>
+                </tr>
+                {% endfor %}
 
-                <td>{{ forloop.counter }}</td>
-
-                <td class="text-left">
-                    {{ form.item_details }}
-                </td>
-
-                <td>{{ form.hsn_sac }}</td>
-
-                <td>{{ form.quantity }}</td>
-
-                <td>{{ form.uom }}</td>
-
-                <td>{{ form.rate }}</td>
-
-                <td>{{ form.tax }}</td>
-
-                <td class="amount text-right">0.00</td>
-
-                <td class="text-center">
-                    {{ form.DELETE }}
-                </td>
-            </tr>
-            {% endfor %}
-
-            <!-- EMPTY FORM -->
-            <tr id="empty-form" class="hidden">
-                <td>__prefix__</td>
-                <td class="text-left">{{ formset.empty_form.item_details }}</td>
-                <td>{{ formset.empty_form.hsn_sac }}</td>
-                <td>{{ formset.empty_form.quantity }}</td>
-                <td>{{ formset.empty_form.uom }}</td>
-                <td>{{ formset.empty_form.rate }}</td>
-                <td>{{ formset.empty_form.tax }}</td>
-                <td class="amount text-right">0.00</td>
-                <td>—</td>
-            </tr>
-        </tbody>
-    </table>
+                <!-- EMPTY FORM -->
+                <tr id="empty-form" class="hidden">
+                    <td>__prefix__</td>
+                    <td class="text-left">{{ formset.empty_form.item_details }}</td>
+                    <td>{{ formset.empty_form.hsn_sac }}</td>
+                    <td>{{ formset.empty_form.quantity }}</td>
+                    <td>{{ formset.empty_form.uom }}</td>
+                    <td>{{ formset.empty_form.rate }}</td>
+                    <td>{{ formset.empty_form.tax }}</td>
+                    <td class="amount text-right">0.00</td>
+                    <td>—</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
+
+    <!-- ================= TOTALS ================= -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+        <div>
+            <label class="font-semibold">Sub Total</label>
+            <input type="text" id="subTotal" readonly
+                   class="w-full border px-3 py-2 rounded bg-gray-100">
+        </div>
+
+        <div>
+            <label class="font-semibold">GST</label>
+            <input type="text" id="gstTotal" readonly
+                   class="w-full border px-3 py-2 rounded bg-gray-100">
+        </div>
+
+        <div>
+            <label class="font-semibold">Grand Total</label>
+            <input type="text" id="grandTotal" readonly
+                   class="w-full border px-3 py-2 rounded bg-green-100 font-bold">
+        </div>
+    </div>
+</div>
+
 
 
 <!-- ================= TERMS ================= -->
@@ -256,14 +267,35 @@ function addRow() {
 }
 
 function recalc() {
+    let subTotal = 0;
+    let gstTotal = 0;
+
     document.querySelectorAll("#itemsTableBody tr").forEach(row => {
-        const qty = parseFloat(row.querySelector(".qty input")?.value || 0);
-        const rate = parseFloat(row.querySelector(".rate input")?.value || 0);
+
+        const qtyInput = row.querySelector('input[name$="-quantity"]');
+        const rateInput = row.querySelector('input[name$="-rate"]');
+        const taxInput = row.querySelector('select[name$="-tax"]');
         const amountCell = row.querySelector(".amount");
-        if (amountCell) {
-            amountCell.innerText = (qty * rate).toFixed(2);
-        }
+
+        if (!qtyInput || !rateInput || !amountCell) return;
+
+        const qty = parseFloat(qtyInput.value) || 0;
+        const rate = parseFloat(rateInput.value) || 0;
+        const tax = parseFloat(taxInput?.value || 0);
+
+        const base = qty * rate;
+        const taxAmount = (base * tax) / 100;
+        const total = base + taxAmount;
+
+        subTotal += base;
+        gstTotal += taxAmount;
+
+        amountCell.innerText = total.toFixed(2);
     });
+
+    document.getElementById("subTotal").value = subTotal.toFixed(2);
+    document.getElementById("gstTotal").value = gstTotal.toFixed(2);
+    document.getElementById("grandTotal").value = (subTotal + gstTotal).toFixed(2);
 }
 
 document.addEventListener("input", recalc);
