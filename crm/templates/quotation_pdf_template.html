@@ -89,7 +89,15 @@
         padding-top: 4px;
         padding-bottom: 4px;
         }
+        ol {
+            margin-left: 15px;
+            padding-left: 0;
+            list-style-type: decimal;
+        }
 
+        ol li::marker {
+            content: counter(list-item) ") ";
+        }
     </style>
 </head>
 <body>
@@ -207,8 +215,10 @@
                 <td style="text-align:center;">{{ item.uom }}</td>
                 <td style="text-align:right;">{{ item.rate }}</td>
                 <td style="text-align:center;">{{ item.tax|floatformat:0 }}%</td>
-                <td style="text-align:right;">{{ item.amount }}</td>
-            </tr>
+                <td style="text-align:right;">
+                     {{ item.taxable_amount|floatformat:2 }}
+                </td>
+
             {% empty %}
             <tr><td colspan="7">No items found</td></tr>
             {% endfor %}
@@ -270,23 +280,23 @@
             <td style="width:4%;"></td>
 
             <!-- Terms & Conditions Box -->
-            <td style="width:58%; vertical-align: top; padding:12px; border:1px solid #999; border-radius:5px;">
-                <strong>Terms & Conditions</strong><br>
-                <div style="font-size:10px; line-height:16px; text-align:justify;">
-                    {{ estimation.terms_conditions|safe }}
+            <td style="width:58%; vertical-align: top; padding:12px; border:1px solid #999;">
+                <strong>Terms & Conditions</strong><br><br>
+
+                <div style="font-size:10px; line-height:1.4;">
+                    {{ terms|safe }}
                 </div>
+
             </td>
         </tr>
     </table>
 
     <!-- Signature -->
     <div class="signature">For iSecure Solutions</div>
-</body>
-</html>
-{% endspaceless %}
-
-
 
 <div style="text-align: center; font-size: 10px; margin-top: 30px; font-style: italic; color: #555;">
     *Computer Generated Quotation. Signature & Stamp Not Required.
 </div>
+</body>
+</html>
+{% endspaceless %}

@@ -131,7 +131,10 @@
                 </td>
                 <td style="text-align: right; white-space: nowrap;">{{ item.rate }}</td>
                 <td style="width: 10%; text-align: right; white-space: nowrap;">{{ item.tax|floatformat:0 }}%</td>
-                <td style="text-align: right; white-space: nowrap;">{{ item.amount }}</td>
+                <td style="text-align: right; white-space: nowrap;">
+                    {{ item.base_amount|floatformat:2 }}
+                </td>
+
             </tr>
             {% endfor %}
         </tbody>
@@ -149,7 +152,7 @@
                     <tr>
                         <td style="border: 1px solid #999; padding: 6px;">Sub Total</td>
                         <td style="border: 1px solid #999; padding: 6px; text-align: right;">
-                            {{ invoice.total_value|floatformat:2 }}
+                            {{ sub_total|floatformat:2 }}
                         </td>
                     </tr>
 
@@ -217,45 +220,47 @@
 
     <tr>
         <!-- LEFT reminder column -->
-        <td style="width:70%; vertical-align:top; border:1px solid #999; padding:6px;">
-            
-            <strong>Payment Options</strong><br><br>
-            <u>For Bank Transfer Please Find the details</u><br><br>
+        <table style="width:100%; margin-top:10px; font-size:11px; border-collapse:collapse;">
+            <tr>
+                <!-- LEFT COLUMN -->
+                <td style="width:70%; vertical-align:top; border:1px solid #999; padding:10px;">
 
-            Name: B16 VENTURES<br>
-            Account Number: 233005001741<br>
-            IFSC Code: ICIC0002330<br>
-            Bank: ICICI Bank<br>
-            Branch: TC Palya, Bangalore
+                    <strong>Payment Options</strong><br><br>
+                    <u>For Bank Transfer Please Find the details</u><br><br>
 
-            <br><br><br>
+                    Name: B16 VENTURES<br>
+                    Account Number: 233005001741<br>
+                    IFSC Code: ICIC0002330<br>
+                    Bank: ICICI Bank<br>
+                    Branch: TC Palya, Bangalore
 
-            <strong>Terms & Conditions :</strong><br><br>
+                    <br><br>
 
-            <div style="
-                font-family: Arial, sans-serif;
-                font-size: 10px;
-                line-height: 1.0;
-            ">
-                {% for line in terms_pdf.splitlines %}
-                    <div style="margin-bottom: 4px;">
-                        {{ line }}
+                    <strong>Terms & Conditions :</strong><br><br>
+
+                    <div style="font-size:10px; line-height:1.3;">
+                        {% for line in terms_pdf %}
+                            <div style="margin-bottom:4px;">
+                                {{ forloop.counter }}) {{ line }}
+                            </div>
+                        {% endfor %}
                     </div>
-                {% endfor %}
-            </div>
 
+                    <br><br>
 
+                    For any clarification please write to us at<br>
+                    <strong>support@isecuresolutions.in</strong>
 
-            <br>
-            For any clarification please write to us at
-            <strong>support@isecuresolutions.in</strong>
-        </td>
+                </td>
 
-        <!-- RIGHT signature column -->
-        <td style="width:30%; vertical-align:top; border:1px solid #999; text-align:center; padding:6px;">
-            <strong>For iSecure Solutions</strong>
-    </tr>
-</table>
+                <!-- RIGHT COLUMN -->
+                <td style="width:30%; vertical-align:top; border:1px solid #999; padding:10px; text-align:center;">
+
+                    <strong>For iSecure Solutions</strong>
+
+                </td>
+            </tr>
+        </table>
 </body>
 </html>
 {% endspaceless %}
