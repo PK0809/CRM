@@ -148,25 +148,26 @@
         <table class="invoice-table w-full text-sm border border-gray-300">
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th class="text-left">Description</th>
-                    <th>HSN / SAC</th>
-                    <th>Qty</th>
-                    <th>UOM</th>
-                    <th>Rate</th>
-                    <th>Tax %</th>
-                    <th>Amount</th>
-                    <th>Del</th>
+                    <th style="width:5%">#</th>
+                    <th style="width:35%; text-align:left;">Description</th>
+                    <th style="width:10%">HSN / SAC</th>
+                    <th style="width:7%">Qty</th>
+                    <th style="width:8%">UOM</th>
+                    <th style="width:10%">Rate</th>
+                    <th style="width:8%">Tax %</th>
+                    <th style="width:12%">Amount</th>
+                    <th style="width:5%">Del</th>
                 </tr>
             </thead>
+
 
             <tbody id="itemsTableBody">
                 {{ formset.management_form }}
 
                 {% for form in formset %}
-                <tr>
+                <tr class="form-row">
                     {{ form.id }}
-                    <td>{{ forloop.counter }}</td>
+                    <td class="row-index">{{ forloop.counter }}</td>
                     <td class="text-left">{{ form.item_details }}</td>
                     <td>{{ form.hsn_sac }}</td>
                     <td>{{ form.quantity }}</td>
@@ -174,13 +175,20 @@
                     <td>{{ form.rate }}</td>
                     <td>{{ form.tax }}</td>
                     <td class="amount text-right">0.00</td>
-                    <td class="text-center">{{ form.DELETE }}</td>
+                    <td class="text-center">
+                        {{ form.DELETE }}
+                        <button type="button"
+                                onclick="deleteRow(this)"
+                                class="text-red-600 font-bold hover:text-red-800">
+                            ✖
+                        </button>
+                    </td>
                 </tr>
                 {% endfor %}
 
-                <!-- EMPTY FORM -->
+                <!-- EMPTY TEMPLATE -->
                 <tr id="empty-form" class="hidden">
-                    <td>__prefix__</td>
+                    <td class="row-index">__prefix__</td>
                     <td class="text-left">{{ formset.empty_form.item_details }}</td>
                     <td>{{ formset.empty_form.hsn_sac }}</td>
                     <td>{{ formset.empty_form.quantity }}</td>
@@ -188,7 +196,13 @@
                     <td>{{ formset.empty_form.rate }}</td>
                     <td>{{ formset.empty_form.tax }}</td>
                     <td class="amount text-right">0.00</td>
-                    <td>—</td>
+                    <td class="text-center">
+                        <button type="button"
+                                onclick="deleteRow(this)"
+                                class="text-red-600 font-bold hover:text-red-800">
+                            ✖
+                        </button>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -250,6 +264,14 @@
 </div>
 
 <script>
+function updateRowNumbers() {
+    document.querySelectorAll("#itemsTableBody .form-row").forEach((row, index) => {
+        if (row.style.display !== "none") {
+            row.querySelector(".row-index").innerText = index + 1;
+        }
+    });
+}
+
 function addRow() {
     const tbody = document.getElementById("itemsTableBody");
     const totalForms = document.querySelector('input[name="form-TOTAL_FORMS"]');
@@ -257,12 +279,34 @@ function addRow() {
 
     const template = document.getElementById("empty-form").cloneNode(true);
     template.classList.remove("hidden");
+    template.classList.add("form-row");
     template.removeAttribute("id");
 
     template.innerHTML = template.innerHTML.replace(/__prefix__/g, index);
-    tbody.appendChild(template);
 
+    tbody.appendChild(template);
     totalForms.value = index + 1;
+
+    updateRowNumbers();
+    recalc();
+}
+
+function deleteRow(button) {
+    const row = button.closest("tr");
+    const deleteInput = row.querySelector('input[type="checkbox"]');
+
+    if (deleteInput) {
+        // Existing saved row
+        deleteInput.checked = true;
+        row.style.display = "none";
+    } else {
+        // New unsaved row
+        row.remove();
+        const totalForms = document.querySelector('input[name="form-TOTAL_FORMS"]');
+        totalForms.value = parseInt(totalForms.value) - 1;
+    }
+
+    updateRowNumbers();
     recalc();
 }
 
@@ -270,14 +314,16 @@ function recalc() {
     let subTotal = 0;
     let gstTotal = 0;
 
-    document.querySelectorAll("#itemsTableBody tr").forEach(row => {
+    document.querySelectorAll("#itemsTableBody .form-row").forEach(row => {
+
+        if (row.style.display === "none") return;
 
         const qtyInput = row.querySelector('input[name$="-quantity"]');
         const rateInput = row.querySelector('input[name$="-rate"]');
         const taxInput = row.querySelector('select[name$="-tax"]');
         const amountCell = row.querySelector(".amount");
 
-        if (!qtyInput || !rateInput || !amountCell) return;
+        if (!qtyInput || !rateInput) return;
 
         const qty = parseFloat(qtyInput.value) || 0;
         const rate = parseFloat(rateInput.value) || 0;
@@ -290,7 +336,9 @@ function recalc() {
         subTotal += base;
         gstTotal += taxAmount;
 
-        amountCell.innerText = total.toFixed(2);
+        if (amountCell) {
+            amountCell.innerText = total.toFixed(2);
+        }
     });
 
     document.getElementById("subTotal").value = subTotal.toFixed(2);
@@ -299,7 +347,11 @@ function recalc() {
 }
 
 document.addEventListener("input", recalc);
-document.addEventListener("DOMContentLoaded", recalc);
+document.addEventListener("DOMContentLoaded", function() {
+    updateRowNumbers();
+    recalc();
+});
 </script>
+
 
 {% endblock %}
