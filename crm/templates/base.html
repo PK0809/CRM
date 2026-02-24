@@ -48,6 +48,7 @@
             <div class="mt-4">
                 <button onclick="toggleMenu('salesMenu')" class="w-full text-left py-2 px-4 bg-blue-100 hover:bg-blue-200 rounded font-bold">Sales</button>
                 <div id="salesMenu" class="ml-4 mt-2 hidden">
+                    <a href="{% url 'call_log_list' %}" class="block py-1 text-blue-600 hover:underline font-semibold">📞 Call Logs</a>
                     {% if perms.crm.view_client %}
                     <a href="/client/" class="block py-1 text-blue-600 hover:underline font-semibold">🧾 Client</a>
                     {% endif %}

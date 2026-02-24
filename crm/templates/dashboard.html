@@ -71,6 +71,7 @@
                 <div class="tooltip">Sales</div>
             </button>
             <div id="salesMenu" class="ml-6 mt-2 hidden submenu">
+                <a href="{% url 'call_log_list' %}" class="block py-1 text-blue-700 hover:underline font-semibold">📞 Call Logs</a>
                 {% if perms.crm.view_client %}<a href="/client/" class="block py-1 text-blue-700 hover:underline font-semibold">🧾 Client</a>{% endif %}
                 {% if perms.crm.view_lead %}<a href="/lead/" class="block py-1 text-blue-700 hover:underline font-semibold">📋 Lead</a>{% endif %}
                 {% if perms.crm.view_estimation %}<a href="/estimation/" class="block py-1 text-blue-700 hover:underline font-semibold">📐 Estimation</a>{% endif %}
