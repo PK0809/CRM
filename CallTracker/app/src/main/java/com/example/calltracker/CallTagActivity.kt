@@ -86,7 +86,7 @@ class CallTagActivity : AppCompatActivity() {
             .toRequestBody("application/json; charset=utf-8".toMediaType())
 
         val request = Request.Builder()
-            .url("http://crm.isecuresolutions.in/api/call-log/")
+            .url("https://www.crm.isecuresolutions.in/api/call-log/")
             .post(requestBody)
             .build()
 
@@ -116,4 +116,5 @@ class CallTagActivity : AppCompatActivity() {
             }
         })
     }
+
 }
