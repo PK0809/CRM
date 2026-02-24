@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.kpi-card { border-radius:12px; padding:18px 20px; }
+.kpi-title { font-size:13px; color:#6c757d; }
+.kpi-value { font-size:24px; font-weight:700; }
+
+.follow_up { background:#e3f2fd; color:#0d6efd; }
+.junk { background:#fde2e2; color:#b02a37; }
+.lead_stage { background:#fff3cd; color:#856404; }
+.existing_client { background:#d1e7dd; color:#0f5132; }
+.missed { background:#f8d7da; color:#842029; }
+</style>
+
+<!-- KPI SECTION -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+
+    <div class="bg-white rounded-xl shadow-sm p-5 text-center">
+        <p class="text-sm text-gray-500">Total Call</p>
+        <h2 class="text-2xl font-bold text-gray-800 mt-1">{{ total_calls }}</h2>
+    </div>
+
+    <div class="bg-blue-50 rounded-xl shadow-sm p-5 text-center">
+        <p class="text-sm text-blue-600">Received Call</p>
+        <h2 class="text-2xl font-bold text-blue-700 mt-1">{{ incoming_calls }}</h2>
+    </div>
+
+    <div class="bg-red-50 rounded-xl shadow-sm p-5 text-center">
+        <p class="text-sm text-red-600">Missed</p>
+        <h2 class="text-2xl font-bold text-red-700 mt-1">{{ missed_calls }}</h2>
+    </div>
+
+    <div class="bg-yellow-50 rounded-xl shadow-sm p-5 text-center">
+        <p class="text-sm text-yellow-600">Lead</p>
+        <h2 class="text-2xl font-bold text-yellow-700 mt-1">{{ lead_stage }}</h2>
+    </div>
+
+</div>
+
+
+<!-- ADVANCED FILTER FORM -->
+<form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm">
+
+    <input type="text" name="q" value="{{ query }}" placeholder="Search phone, name, remarks..."
+           class="border rounded px-3 py-2">
+
+    <select name="status" class="border rounded px-3 py-2">
+        <option value="">All Status</option>
+        <option value="follow_up" {% if filter_status == "follow_up" %}selected{% endif %}>Follow Up</option>
+        <option value="junk" {% if filter_status == "junk" %}selected{% endif %}>Junk</option>
+        <option value="lead_stage" {% if filter_status == "lead_stage" %}selected{% endif %}>Lead Stage</option>
+        <option value="existing_client" {% if filter_status == "existing_client" %}selected{% endif %}>Existing Client</option>
+        <option value="missed" {% if filter_status == "missed" %}selected{% endif %}>Missed</option>
+    </select>
+
+    <select name="call_type" class="border rounded px-3 py-2">
+        <option value="">All Type</option>
+        <option value="incoming" {% if filter_call_type == "incoming" %}selected{% endif %}>Incoming</option>
+        <option value="missed" {% if filter_call_type == "missed" %}selected{% endif %}>Missed</option>
+    </select>
+
+    <select name="sim_slot" class="border rounded px-3 py-2">
+        <option value="">All SIM</option>
+        <option value="SIM 1" {% if filter_sim_slot == "SIM 1" %}selected{% endif %}>SIM 1</option>
+        <option value="SIM 2" {% if filter_sim_slot == "SIM 2" %}selected{% endif %}>SIM 2</option>
+    </select>
+
+    <input type="date" name="start_date" value="{{ filter_start_date }}" class="border rounded px-3 py-2">
+    <input type="date" name="end_date" value="{{ filter_end_date }}" class="border rounded px-3 py-2">
+
+    <input type="number" min="0" name="min_duration" value="{{ filter_min_duration }}"
+           placeholder="Min duration" class="border rounded px-3 py-2">
+
+    <input type="number" min="0" name="max_duration" value="{{ filter_max_duration }}"
+           placeholder="Max duration" class="border rounded px-3 py-2">
+
+    <div class="md:col-span-4 flex gap-3">
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">
+            Apply Filters
+        </button>
+
+        {% with request.GET.urlencode as qs %}
+        <a href="{% url 'export_call_logs' %}{% if qs %}?{{ qs }}{% endif %}"
+           class="bg-green-600 text-white px-4 py-2 rounded">
+            Export Filtered
+        </a>
+        {% endwith %}
+
+        <a href="{% url 'call_log_list' %}"
+           class="bg-gray-200 px-4 py-2 rounded">
+            Reset
+        </a>
+    </div>
+
+</form>
+
+
+<!-- TABLE -->
+<div class="bg-white rounded-xl shadow-sm p-6">
+<div class="overflow-x-auto">
+
+<table class="min-w-full divide-y divide-gray-200">
+
+<thead class="bg-[#0b1d3a] text-white text-sm uppercase">
+<tr>
+    <th class="px-6 py-3 text-left">Date & Time</th>
+    <th class="px-6 py-3 text-left">SIM</th>
+    <th class="px-6 py-3 text-left">Phone</th>
+    <th class="px-6 py-3 text-left">Name</th>
+    <th class="px-6 py-3 text-left">Address</th>
+    <th class="px-6 py-3 text-left">Remarks</th>
+    <th class="px-6 py-3 text-left">Status</th>
+    <th class="px-6 py-3 text-left">Type</th>
+    <th class="px-6 py-3 text-left">Duration</th>
+</tr>
+</thead>
+
+<tbody class="bg-white divide-y divide-gray-100 text-sm">
+
+{% for log in logs %}
+<tr class="hover:bg-gray-50">
+
+<td class="px-6 py-4">
+    {{ log.call_time|date:"d M Y" }}<br>
+    <span class="text-xs text-gray-500">
+        {{ log.call_time|date:"h:i A" }}
+    </span>
+</td>
+
+<td class="px-6 py-4 font-semibold">
+    {{ log.sim_slot|default:"-" }}
+</td>
+
+<td class="px-6 py-4 font-semibold">
+    {{ log.phone_number }}
+</td>
+
+<td class="px-6 py-4">
+    <input type="text" value="{{ log.name|default:'' }}"
+           data-id="{{ log.id }}" data-field="name"
+           class="border rounded px-2 py-1 w-full">
+</td>
+
+<td class="px-6 py-4">
+    <input type="text" value="{{ log.address|default:'' }}"
+           data-id="{{ log.id }}" data-field="address"
+           class="border rounded px-2 py-1 w-full">
+</td>
+
+<td class="px-6 py-4">
+    <input type="text" value="{{ log.remarks|default:'' }}"
+           data-id="{{ log.id }}" data-field="remarks"
+           class="border rounded px-2 py-1 w-full">
+</td>
+
+<td class="px-6 py-4">
+<select data-id="{{ log.id }}" data-field="status"
+class="px-3 py-1 rounded text-sm font-semibold">
+
+<option value="follow_up" {% if log.status == "follow_up" %}selected{% endif %}>Follow Up</option>
+<option value="junk" {% if log.status == "junk" %}selected{% endif %}>Junk</option>
+<option value="lead_stage" {% if log.status == "lead_stage" %}selected{% endif %}>Lead Stage</option>
+<option value="existing_client" {% if log.status == "existing_client" %}selected{% endif %}>Existing Client</option>
+
+</select>
+</td>
+
+<td class="px-6 py-4">
+{% if log.call_type == "incoming" %}
+<span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
+{{ log.get_call_type_display }}
+</span>
+{% else %}
+<span class="px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
+{{ log.get_call_type_display }}
+</span>
+{% endif %}
+</td>
+
+<td class="px-6 py-4 font-semibold">
+{{ log.duration }} sec
+</td>
+
+</tr>
+
+{% empty %}
+<tr>
+<td colspan="9" class="text-center py-6 text-gray-400">
+No Call Logs Available
+</td>
+</tr>
+{% endfor %}
+
+</tbody>
+</table>
+
+</div>
+</div>
+
+
+<script>
+function updateField(id, field, value) {
+    fetch(`/call-log/update-field/${id}/`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}"
+        },
+        body: JSON.stringify({ field: field, value: value })
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('input[data-field], select[data-field]')
+    .forEach(function(el) {
+        el.addEventListener('change', function() {
+            updateField(this.dataset.id, this.dataset.field, this.value);
+        });
+    });
+});
+</script>
+
+{% endblock %}
