@@ -107,6 +107,14 @@ urlpatterns = [
     path('vendor/', views.vendor_view, name='vendor'),
     path('profile/', views.profile_view, name='profile'),
 
+
+    path("call-logs/", views.call_log_list, name="call_log_list"),
+    path("call-log/update-status/<int:pk>/", views.update_call_status, name="update_call_status"),
+    path("api/call-log/", views.save_call_log, name="save_call_log"),
+    path("call-logs/export/", views.export_call_logs, name="export_call_logs"),
+    path("call-log/update-field/<int:pk>/", views.update_call_log_field, name="update_call_log_field"),
+
+
     # Media (development convenience)
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
