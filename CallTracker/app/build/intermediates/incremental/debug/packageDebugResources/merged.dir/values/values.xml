@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="primaryColor">#0B1D3A</color>
+    <color name="white">#FFFFFFFF</color>
+    <string name="address">Address</string>
+    <string name="app_name">CallTracker</string>
+    <string name="call_details">Call Details</string>
+    <string name="call_ended">Call Ended</string>
+    <string name="call_remarks">Call Remarks</string>
+    <string name="call_time_label">Time: %1$s</string>
+    <string name="duration_label">Duration: %1$d sec</string>
+    <string name="name">Name</string>
+    <string name="phone_number_label">Number: %1$s</string>
+    <string name="save">Save</string>
+    <string name="saved_success">Saved to CRM</string>
+    <string name="server_error">Server error. Please try again.</string>
+    <string name="status">Status</string>
+    <string name="status_existing_client">Existing Client</string>
+    <string name="status_follow_up">Follow Up</string>
+    <string name="status_junk">Junk</string>
+    <string name="status_lead_stage">Lead Stage</string>
+    <string name="tap_to_add_details">Tap to add details</string>
+    <style name="Base.Theme.CallTracker" parent="Theme.Material3.DayNight.NoActionBar">
+        
+        
+    </style>
+    <style name="Theme.CallTracker" parent="Base.Theme.CallTracker"/>
+</resources>
