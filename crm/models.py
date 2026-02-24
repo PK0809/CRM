@@ -547,3 +547,38 @@ class Report(models.Model):
 
     def __str__(self):
         return self.title
+    
+
+from django.db import models
+
+class CallLog(models.Model):
+
+    STATUS_CHOICES = [
+        ("follow_up", "Follow Up"),
+        ("junk", "Junk"),
+        ("lead_stage", "Lead Stage"),
+        ("existing_client", "Existing Client"),
+        ("missed", "Missed"),
+    ]
+
+    CALL_TYPE_CHOICES = [
+        ("incoming", "Picked Up Call"),
+        ("missed", "Missed Call"),
+    ]
+
+    phone_number = models.CharField(max_length=20)
+    name = models.CharField(max_length=100, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES)
+    call_type = models.CharField(max_length=20, choices=CALL_TYPE_CHOICES)
+
+    duration = models.IntegerField(default=0)
+    sim_slot = models.CharField(max_length=10, blank=True, null=True)
+    call_time = models.DateTimeField(auto_now_add=True)
+
+    is_completed = models.BooleanField(default=False)  # 🔥 important
+
+    def __str__(self):
+        return f"{self.phone_number} - {self.call_type}"
