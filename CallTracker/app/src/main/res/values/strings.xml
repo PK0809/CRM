@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ===================== -->
+    <!-- APP -->
+    <!-- ===================== -->
+    <string name="app_name">CallTracker</string>
+
+    <!-- ===================== -->
+    <!-- CALL SCREEN -->
+    <!-- ===================== -->
+    <string name="call_details">Call Details</string>
+    <string name="phone_number_label">Number: %1$s</string>
+    <string name="duration_label">Duration: %1$d sec</string>
+    <string name="call_time_label">Time: %1$s</string>
+
+    <!-- ===================== -->
+    <!-- FORM FIELDS -->
+    <!-- ===================== -->
+    <string name="name">Name</string>
+    <string name="address">Address</string>
+    <string name="call_remarks">Call Remarks</string>
+    <string name="status">Status</string>
+    <string name="save">Save</string>
+
+    <!-- ===================== -->
+    <!-- STATUS OPTIONS (IMPORTANT) -->
+    <!-- ===================== -->
+    <string name="status_follow_up">Follow Up</string>
+    <string name="status_junk">Junk</string>
+    <string name="status_lead_stage">Lead Stage</string>
+    <string name="status_existing_client">Existing Client</string>
+
+    <!-- ===================== -->
+    <!-- NOTIFICATION -->
+    <!-- ===================== -->
+    <string name="call_ended">Call Ended</string>
+    <string name="tap_to_add_details">Tap to add details</string>
+
+    <!-- ===================== -->
+    <!-- MESSAGES -->
+    <!-- ===================== -->
+    <string name="saved_success">Saved to CRM</string>
+    <string name="server_error">Server error. Please try again.</string>
+
+</resources>
