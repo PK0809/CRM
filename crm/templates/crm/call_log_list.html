@@ -167,19 +167,13 @@ class="px-3 py-1 rounded text-sm font-semibold">
 </td>
 
 <td class="px-6 py-4">
-{% if log.call_type == "incoming" %}
-<span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
+<span class="px-3 py-1 rounded-full text-xs font-semibold
+{% if log.call_type == 'picked' %} bg-green-100 text-green-700
+{% elif log.call_type == 'outgoing' %} bg-blue-100 text-blue-700
+{% elif log.call_type == 'missed' %} bg-red-100 text-red-700
+{% endif %}">
 {{ log.get_call_type_display }}
 </span>
-{% else %}
-<span class="px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
-{{ log.get_call_type_display }}
-</span>
-{% endif %}
-</td>
-
-<td class="px-6 py-4 font-semibold">
-{{ log.duration }} sec
 </td>
 
 </tr>
