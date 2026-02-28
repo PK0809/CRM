@@ -562,9 +562,15 @@ class CallLog(models.Model):
     ]
 
     CALL_TYPE_CHOICES = [
-        ("incoming", "Picked Up Call"),
+        ("picked", "Picked Up Call"),
+        ("outgoing", "Out Going Call"),
         ("missed", "Missed Call"),
     ]
+
+    call_type = models.CharField(
+        max_length=20,
+        choices=CALL_TYPE_CHOICES
+    )
 
     phone_number = models.CharField(max_length=20)
     name = models.CharField(max_length=100, blank=True, null=True)
@@ -582,3 +588,6 @@ class CallLog(models.Model):
 
     def __str__(self):
         return f"{self.phone_number} - {self.call_type}"
+    
+
+    
