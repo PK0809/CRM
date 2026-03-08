@@ -2912,7 +2912,9 @@ def call_log_list(request):
         "filter_max_duration": max_duration,
     }
 
-    return render(request, "crm/call_log_list.html", context)
+    return render(request,"crm/call_log_list.html",{
+        "logs":logs
+    })
 
 
 # ===============================
