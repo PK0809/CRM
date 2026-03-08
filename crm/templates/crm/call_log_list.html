@@ -187,7 +187,9 @@ Reset
 </td>
 
 <td class="px-6 py-4 font-semibold">
-{{ log.sim_slot|default:"-" }}
+<span class="status-badge {{ log.status }}">
+{{ log.get_status_display }}
+</span>
 </td>
 
 <td class="px-6 py-4 font-semibold">
