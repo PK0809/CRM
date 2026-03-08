@@ -2758,21 +2758,12 @@ def edit_dc(request, pk):
         'items': items,
     })
 
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.shortcuts import render, get_object_or_404, redirect
-from django.db.models import Q
-from django.utils import timezone
-from datetime import datetime
 import json
-import openpyxl
-
 from .models import CallLog
 
 
-# ===============================
-# SAVE CALL LOG (ANDROID API)
-# ===============================
 @csrf_exempt
 def save_call_log(request):
 
@@ -2780,32 +2771,31 @@ def save_call_log(request):
         return JsonResponse({"error": "Invalid request"}, status=400)
 
     try:
-        data = json.loads(request.body.decode("utf-8"))
+        data = json.loads(request.body)
     except Exception:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     phone = data.get("phone_number")
-    call_type = data.get("call_type") or "incoming"
+    call_type = data.get("call_type")
     duration = data.get("duration", 0)
     sim_slot = data.get("sim_slot", "")
-
-    name = data.get("name") or ""
-    address = data.get("address") or ""
-    remarks = data.get("remarks") or ""
-    status_value = data.get("status") or "follow_up"
+    name = data.get("name")
+    address = data.get("address", "")
+    remarks = data.get("remarks")
+    status_value = data.get("status")
 
     if not phone:
         return JsonResponse({"error": "Phone number required"}, status=400)
 
-    # Get latest log for that number
+    # 🔥 Always get latest record for that number
     existing = CallLog.objects.filter(
         phone_number=phone
     ).order_by("-call_time").first()
 
-    # ===============================
-    # FORM UPDATE (CallTagActivity)
-    # ===============================
-    if existing and (name or remarks or address):
+    # ==========================
+    # IF FORM SAVE (name or remarks present)
+    # ==========================
+    if existing and (name or remarks):
 
         existing.name = name or existing.name
         existing.address = address or existing.address
@@ -2815,15 +2805,15 @@ def save_call_log(request):
 
         return JsonResponse({"status": "updated"})
 
-    # ===============================
-    # CREATE NEW CALL LOG
-    # ===============================
+    # ==========================
+    # OTHERWISE CREATE (receiver auto save)
+    # ==========================
     CallLog.objects.create(
         phone_number=phone,
         name=name,
         address=address,
         remarks=remarks,
-        status=status_value,
+        status=status_value or "follow_up",
         call_type=call_type,
         duration=duration,
         sim_slot=sim_slot
@@ -2831,12 +2821,27 @@ def save_call_log(request):
 
     return JsonResponse({"status": "created"})
 
-
+ 
 # ===============================
 # CALL LOG LIST PAGE
 # ===============================
-def call_log_list(request):
+from django.shortcuts import render
+from django.db.models import Q
+from django.utils import timezone
+from datetime import datetime, timedelta
 
+from .models import CallLog
+
+def call_log_list(request):
+    """
+    List call logs with advanced filtering:
+    q - general text (phone, name, remarks, address)
+    status - follow_up/junk/lead_stage/existing_client/missed
+    call_type - incoming/missed
+    sim_slot - SIM 1 / SIM 2 / ...
+    start_date, end_date - YYYY-MM-DD
+    min_duration, max_duration - integer seconds
+    """
     qs = CallLog.objects.all().order_by("-call_time")
 
     q = request.GET.get("q", "").strip()
@@ -2848,6 +2853,7 @@ def call_log_list(request):
     min_duration = request.GET.get("min_duration", "").strip()
     max_duration = request.GET.get("max_duration", "").strip()
 
+    # general search
     if q:
         qs = qs.filter(
             Q(phone_number__icontains=q) |
@@ -2863,46 +2869,43 @@ def call_log_list(request):
         qs = qs.filter(call_type=call_type)
 
     if sim_slot:
+        # store sim slot normalized in DB like "SIM 1", "SIM 2" - adjust as needed
         qs = qs.filter(sim_slot__iexact=sim_slot)
 
-    # Date filters
+    # date range parsing (safe)
     try:
         if start_date:
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-            start_dt = timezone.make_aware(
-                datetime.combine(start_dt.date(), datetime.min.time())
-            )
+            start_dt = timezone.make_aware(datetime.combine(start_dt.date(), datetime.min.time()))
             qs = qs.filter(call_time__gte=start_dt)
-
         if end_date:
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-            end_dt = timezone.make_aware(
-                datetime.combine(end_dt.date(), datetime.max.time())
-            )
+            # include whole day
+            end_dt = timezone.make_aware(datetime.combine(end_dt.date(), datetime.max.time()))
             qs = qs.filter(call_time__lte=end_dt)
-
     except Exception:
+        # ignore parse errors (or add messages)
         pass
 
-    # Duration filter
+    # duration range
     try:
         if min_duration:
             qs = qs.filter(duration__gte=int(min_duration))
-
         if max_duration:
             qs = qs.filter(duration__lte=int(max_duration))
-
     except ValueError:
         pass
 
+    # KPI counts for the filtered set (so KPIs update when filters applied)
     context = {
-        "logs": qs,
+        "logs": qs,  # consider pagination later
         "query": q,
         "total_calls": qs.count(),
         "incoming_calls": qs.filter(call_type="incoming").count(),
         "missed_calls": qs.filter(call_type="missed").count(),
         "lead_stage": qs.filter(status="lead_stage").count(),
 
+        # echo current filters back to template
         "filter_status": status,
         "filter_call_type": call_type,
         "filter_sim_slot": sim_slot,
@@ -2912,20 +2915,15 @@ def call_log_list(request):
         "filter_max_duration": max_duration,
     }
 
-    return render(request,"crm/call_log_list.html",{
-        "logs":logs
-    })
+    return render(request, "crm/call_log_list.html", context)
 
 
 # ===============================
 # UPDATE STATUS INLINE
 # ===============================
 def update_call_status(request, pk):
-
     if request.method == "POST":
-
         log = get_object_or_404(CallLog, pk=pk)
-
         log.status = request.POST.get("status")
         log.save()
 
@@ -2937,6 +2935,7 @@ def update_call_status(request, pk):
 # ===============================
 def export_call_logs(request):
 
+    # 🔥 IMPORTANT: DO NOT FILTER BY USER (You are not saving user in API)
     logs = CallLog.objects.all().order_by("-call_time")
 
     wb = openpyxl.Workbook()
@@ -2956,7 +2955,6 @@ def export_call_logs(request):
     ])
 
     for log in logs:
-
         ws.append([
             log.call_time.strftime("%d-%m-%Y %H:%M"),
             log.phone_number,
@@ -2965,24 +2963,25 @@ def export_call_logs(request):
             log.remarks,
             log.get_status_display(),
             log.get_call_type_display(),
-            f"{log.duration} sec" if log.duration else "",
-            log.sim_slot or ""
+            f"{log.duration} sec"
+            if log.duration else "",
+            log.sim_slot or "", 
         ])
 
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
     response["Content-Disposition"] = "attachment; filename=call_logs.xlsx"
 
     wb.save(response)
-
     return response
 
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+import json
+from .models import CallLog
 
-# ===============================
-# INLINE FIELD UPDATE (AJAX)
-# ===============================
+
 @csrf_exempt
 def update_call_log_field(request, pk):
 
@@ -2997,12 +2996,19 @@ def update_call_log_field(request, pk):
     field = data.get("field")
     value = data.get("value")
 
+    if not field:
+        return JsonResponse({"error": "Field missing"}, status=400)
+
+    try:
+        log = CallLog.objects.get(pk=pk)
+    except CallLog.DoesNotExist:
+        return JsonResponse({"error": "Log not found"}, status=404)
+
+    # 🔥 Allowed editable fields only
     allowed_fields = ["name", "address", "remarks", "status"]
 
     if field not in allowed_fields:
         return JsonResponse({"error": "Field not allowed"}, status=400)
-
-    log = get_object_or_404(CallLog, pk=pk)
 
     setattr(log, field, value)
     log.save()
